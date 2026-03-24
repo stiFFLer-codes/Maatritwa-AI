@@ -17,104 +17,103 @@ function calculateRisk(patient) {
   const reasons = [];
   let level = 'low';
 
-  // CRITICAL
+  const severityRank = { low: 0, moderate: 1, high: 2, critical: 3 };
+  const promoteLevel = (newLevel) => {
+    if (severityRank[newLevel] > severityRank[level]) level = newLevel;
+  };
+
+  // --- Systolic BP: pick the single highest-matching tier ---
   if (systolicBP >= 160) {
     reasons.push({ factor: 'Systolic BP', value: `${systolicBP} mmHg`, threshold: '≥160 mmHg', severity: 'critical',
       en: `Systolic BP of ${systolicBP} mmHg severely exceeds safe limit. Immediate medical intervention required.`,
       hi: `सिस्टोलिक BP ${systolicBP} mmHg सुरक्षित सीमा से बहुत अधिक है। तुरंत चिकित्सा हस्तक्षेप आवश्यक।` });
-    level = 'critical';
+    promoteLevel('critical');
+  } else if (systolicBP >= 140) {
+    reasons.push({ factor: 'Systolic BP', value: `${systolicBP} mmHg`, threshold: '≥140 mmHg (WHO)',
+      severity: 'high',
+      en: `BP exceeds WHO hypertensive threshold for pregnancy (≥140 mmHg).`,
+      hi: `BP गर्भावस्था के लिए WHO उच्च रक्तचाप सीमा (≥140) से अधिक है।` });
+    promoteLevel('high');
+  } else if (systolicBP >= 130) {
+    reasons.push({ factor: 'Systolic BP', value: `${systolicBP} mmHg`, threshold: '≥130 mmHg', severity: 'moderate',
+      en: 'BP approaching hypertensive range. Close monitoring advised.',
+      hi: 'BP उच्च रक्तचाप सीमा के करीब है। निगरानी ज़रूरी।' });
+    promoteLevel('moderate');
   }
+
+  // --- Diastolic BP: pick the single highest-matching tier ---
   if (diastolicBP >= 110) {
     reasons.push({ factor: 'Diastolic BP', value: `${diastolicBP} mmHg`, threshold: '≥110 mmHg', severity: 'critical',
       en: `Diastolic BP of ${diastolicBP} mmHg indicates severe hypertension. Risk of organ damage.`,
       hi: `डायस्टोलिक BP ${diastolicBP} mmHg गंभीर उच्च रक्तचाप दर्शाता है। अंग क्षति का जोखिम।` });
-    level = 'critical';
+    promoteLevel('critical');
+  } else if (diastolicBP >= 90) {
+    reasons.push({ factor: 'Diastolic BP', value: `${diastolicBP} mmHg`, threshold: '≥90 mmHg (WHO)',
+      severity: 'high',
+      en: `Diastolic BP exceeds WHO threshold for gestational hypertension.`,
+      hi: `डायस्टोलिक BP गर्भकालीन उच्च रक्तचाप की WHO सीमा से अधिक है।` });
+    promoteLevel('high');
+  } else if (diastolicBP >= 80) {
+    reasons.push({ factor: 'Diastolic BP', value: `${diastolicBP} mmHg`, threshold: '≥80 mmHg', severity: 'moderate',
+      en: 'Diastolic BP in pre-hypertensive range.',
+      hi: 'डायस्टोलिक BP प्री-हाइपरटेंसिव सीमा में है।' });
+    promoteLevel('moderate');
   }
 
-  // HIGH
-  if (level !== 'critical') {
-    if (systolicBP >= 140) {
-      reasons.push({ factor: 'Systolic BP', value: `${systolicBP} mmHg`, threshold: '≥140 mmHg (WHO)',
-        severity: 'high',
-        en: `BP exceeds WHO hypertensive threshold for pregnancy (≥140 mmHg).`,
-        hi: `BP गर्भावस्था के लिए WHO उच्च रक्तचाप सीमा (≥140) से अधिक है।` });
-      level = 'high';
-    }
-    if (diastolicBP >= 90) {
-      reasons.push({ factor: 'Diastolic BP', value: `${diastolicBP} mmHg`, threshold: '≥90 mmHg (WHO)',
-        severity: 'high',
-        en: `Diastolic BP exceeds WHO threshold for gestational hypertension.`,
-        hi: `डायस्टोलिक BP गर्भकालीन उच्च रक्तचाप की WHO सीमा से अधिक है।` });
-      if (level !== 'high') level = 'high';
-    }
-    if (previousPreeclampsia && systolicBP >= 130) {
-      reasons.push({ factor: 'History + BP', value: `Prior preeclampsia + BP ${systolicBP}`, threshold: 'Recurrence risk',
-        severity: 'high',
-        en: `Prior preeclampsia combined with elevated BP significantly increases recurrence risk.`,
-        hi: `पिछले प्रीक्लेम्पसिया के साथ बढ़ा हुआ BP पुनरावृत्ति जोखिम बहुत बढ़ाता है।` });
-      if (level !== 'high') level = 'high';
-    }
-    if (age > 35 && gestationalWeeks > 20 && systolicBP >= 130) {
-      reasons.push({ factor: 'Age + Gestation + BP', value: `Age ${age}, Wk ${gestationalWeeks}, BP ${systolicBP}`, threshold: 'Combined high risk',
-        severity: 'high',
-        en: `Advanced maternal age with elevated BP after 20 weeks creates compound risk.`,
-        hi: `20 सप्ताह के बाद बढ़ी उम्र और उच्च BP मिलकर जोखिम बढ़ाते हैं।` });
-      if (level !== 'critical' && level !== 'high') level = 'high';
-    }
+  // --- Combination factors (always evaluated) ---
+  if (previousPreeclampsia && systolicBP >= 130) {
+    reasons.push({ factor: 'History + BP', value: `Prior preeclampsia + BP ${systolicBP}`, threshold: 'Recurrence risk',
+      severity: 'high',
+      en: `Prior preeclampsia combined with elevated BP significantly increases recurrence risk.`,
+      hi: `पिछले प्रीक्लेम्पसिया के साथ बढ़ा हुआ BP पुनरावृत्ति जोखिम बहुत बढ़ाता है।` });
+    promoteLevel('high');
+  }
+  if (age > 35 && gestationalWeeks > 20 && systolicBP >= 130) {
+    reasons.push({ factor: 'Age + Gestation + BP', value: `Age ${age}, Wk ${gestationalWeeks}, BP ${systolicBP}`, threshold: 'Combined high risk',
+      severity: 'high',
+      en: `Advanced maternal age with elevated BP after 20 weeks creates compound risk.`,
+      hi: `20 सप्ताह के बाद बढ़ी उम्र और उच्च BP मिलकर जोखिम बढ़ाते हैं।` });
+    promoteLevel('high');
   }
 
-  // MODERATE
-  if (level !== 'critical' && level !== 'high') {
-    if (systolicBP >= 130) {
-      reasons.push({ factor: 'Systolic BP', value: `${systolicBP} mmHg`, threshold: '≥130 mmHg', severity: 'moderate',
-        en: 'BP approaching hypertensive range. Close monitoring advised.',
-        hi: 'BP उच्च रक्तचाप सीमा के करीब है। निगरानी ज़रूरी।' });
-      level = 'moderate';
-    }
-    if (diastolicBP >= 80) {
-      reasons.push({ factor: 'Diastolic BP', value: `${diastolicBP} mmHg`, threshold: '≥80 mmHg', severity: 'moderate',
-        en: 'Diastolic BP in pre-hypertensive range.',
-        hi: 'डायस्टोलिक BP प्री-हाइपरटेंसिव सीमा में है।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (age > 35) {
-      reasons.push({ factor: 'Maternal Age', value: `${age} years`, threshold: '>35', severity: 'moderate',
-        en: 'Advanced maternal age increases risk of pregnancy complications.',
-        hi: 'बढ़ी हुई मातृ आयु गर्भावस्था जटिलताओं का जोखिम बढ़ाती है।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (previousPreeclampsia) {
-      reasons.push({ factor: 'History', value: 'Prior preeclampsia', threshold: 'Present', severity: 'moderate',
-        en: 'History of preeclampsia increases recurrence probability by 20–30%.',
-        hi: 'प्रीक्लेम्पसिया का इतिहास पुनरावृत्ति संभावना 20-30% बढ़ाता है।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (diabetes) {
-      reasons.push({ factor: 'Diabetes', value: 'Present', threshold: 'Risk factor', severity: 'moderate',
-        en: 'Diabetes increases preeclampsia risk by 2–4×.',
-        hi: 'मधुमेह प्रीक्लेम्पसिया जोखिम 2-4 गुना बढ़ाता है।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (firstPregnancy) {
-      reasons.push({ factor: 'First Pregnancy', value: 'Yes', threshold: 'Risk factor', severity: 'moderate',
-        en: 'First pregnancy carries higher preeclampsia risk than subsequent ones.',
-        hi: 'पहली गर्भावस्था में प्रीक्लेम्पसिया जोखिम अधिक होता है।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (hemoglobin && hemoglobin < 11) {
-      reasons.push({ factor: 'Hemoglobin', value: `${hemoglobin} g/dL`, threshold: '<11 g/dL', severity: 'moderate',
-        en: 'Anemia detected. Iron supplementation and close monitoring required.',
-        hi: 'एनीमिया पाया गया। आयरन सप्लीमेंट और निगरानी ज़रूरी।' });
-      if (level === 'low') level = 'moderate';
-    }
-    if (weight && height) {
-      const bmi = weight / ((height / 100) ** 2);
-      if (bmi > 30) {
-        reasons.push({ factor: 'BMI', value: bmi.toFixed(1), threshold: '>30 (Obese)', severity: 'moderate',
-          en: `BMI of ${bmi.toFixed(1)} indicates obesity — a significant preeclampsia risk factor.`,
-          hi: `BMI ${bmi.toFixed(1)} मोटापा दर्शाता है — यह प्रीक्लेम्पसिया का प्रमुख कारक है।` });
-        if (level === 'low') level = 'moderate';
-      }
+  // --- Independent moderate factors (always evaluated) ---
+  if (age > 35) {
+    reasons.push({ factor: 'Maternal Age', value: `${age} years`, threshold: '>35', severity: 'moderate',
+      en: 'Advanced maternal age increases risk of pregnancy complications.',
+      hi: 'बढ़ी हुई मातृ आयु गर्भावस्था जटिलताओं का जोखिम बढ़ाती है।' });
+    promoteLevel('moderate');
+  }
+  if (previousPreeclampsia) {
+    reasons.push({ factor: 'History', value: 'Prior preeclampsia', threshold: 'Present', severity: 'moderate',
+      en: 'History of preeclampsia increases recurrence probability by 20–30%.',
+      hi: 'प्रीक्लेम्पसिया का इतिहास पुनरावृत्ति संभावना 20-30% बढ़ाता है।' });
+    promoteLevel('moderate');
+  }
+  if (diabetes) {
+    reasons.push({ factor: 'Diabetes', value: 'Present', threshold: 'Risk factor', severity: 'moderate',
+      en: 'Diabetes increases preeclampsia risk by 2–4×.',
+      hi: 'मधुमेह प्रीक्लेम्पसिया जोखिम 2-4 गुना बढ़ाता है।' });
+    promoteLevel('moderate');
+  }
+  if (firstPregnancy) {
+    reasons.push({ factor: 'First Pregnancy', value: 'Yes', threshold: 'Risk factor', severity: 'moderate',
+      en: 'First pregnancy carries higher preeclampsia risk than subsequent ones.',
+      hi: 'पहली गर्भावस्था में प्रीक्लेम्पसिया जोखिम अधिक होता है।' });
+    promoteLevel('moderate');
+  }
+  if (hemoglobin && hemoglobin < 11) {
+    reasons.push({ factor: 'Hemoglobin', value: `${hemoglobin} g/dL`, threshold: '<11 g/dL', severity: 'moderate',
+      en: 'Anemia detected. Iron supplementation and close monitoring required.',
+      hi: 'एनीमिया पाया गया। आयरन सप्लीमेंट और निगरानी ज़रूरी।' });
+    promoteLevel('moderate');
+  }
+  if (weight && height) {
+    const bmi = weight / ((height / 100) ** 2);
+    if (bmi > 30) {
+      reasons.push({ factor: 'BMI', value: bmi.toFixed(1), threshold: '>30 (Obese)', severity: 'moderate',
+        en: `BMI of ${bmi.toFixed(1)} indicates obesity — a significant preeclampsia risk factor.`,
+        hi: `BMI ${bmi.toFixed(1)} मोटापा दर्शाता है — यह प्रीक्लेम्पसिया का प्रमुख कारक है।` });
+      promoteLevel('moderate');
     }
   }
 
