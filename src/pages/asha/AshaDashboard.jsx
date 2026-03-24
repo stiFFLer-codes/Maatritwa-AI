@@ -9,6 +9,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { mockPatients } from '../../data/mockPatients';
+import { predictWithTree } from '../../data/decisionTreeRules';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
@@ -350,8 +351,27 @@ export default function AshaDashboard() {
       height:           parseFloat(form.height)         || 0,
       hemoglobin:       parseFloat(form.hemoglobin)     || 0,
     };
+    // Derive severeBP (WHO threshold: systolic ≥160 or diastolic ≥110)
+    f.severeBP = f.systolicBP >= 160 || f.diastolicBP >= 110;
+
     const result = calculateRisk(f);
-    setRiskResult({ patient: f, ...result });
+    const treeResult = predictWithTree(f);
+
+    // Build decision path breadcrumbs
+    const decisionPath = [];
+    if (f.systolicBP <= 138) {
+      decisionPath.push(`BP: ${f.systolicBP} mmHg ≤ 138`);
+      decisionPath.push('Severe BP: No');
+    } else {
+      decisionPath.push(`BP: ${f.systolicBP} mmHg > 138`);
+      decisionPath.push(f.severeBP ? `Severe BP: Yes (≥160/110)` : `Severe BP: No`);
+    }
+    decisionPath.push(treeResult.prediction.toUpperCase());
+
+    const SIMILAR_COUNTS = { 'Normal': 80, 'Mild Pre-Eclampsia': 10, 'Severe Pre-Eclampsia': 14 };
+    const similarCount = SIMILAR_COUNTS[treeResult.prediction] ?? 0;
+
+    setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
 
     const newPatient = {
       id:               `p_new_${Date.now()}`,
@@ -672,6 +692,81 @@ export default function AshaDashboard() {
                                   </p>
                                 </div>
                               </div>
+
+                              {/* ── Dual Method Validation Card ── */}
+                              {riskResult.treeResult && (() => {
+                                const whoLabel = riskResult.level === 'critical' ? 'Severe Pre-Eclampsia'
+                                               : riskResult.level === 'high'     ? 'Mild Pre-Eclampsia'
+                                               : riskResult.level === 'moderate' ? 'Borderline / Monitor'
+                                                                                  : 'Normal';
+                                const treePred = riskResult.treeResult.prediction;
+                                const treeConf = riskResult.treeResult.confidence;
+                                const agreed = (riskResult.level === 'critical' && treePred === 'Severe Pre-Eclampsia') ||
+                                               (riskResult.level === 'high'     && treePred === 'Mild Pre-Eclampsia')   ||
+                                               (['low','moderate'].includes(riskResult.level) && treePred === 'Normal');
+                                return (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="bg-ivory rounded-2xl border border-blush overflow-hidden"
+                                  >
+                                    {/* Header */}
+                                    <div className="px-4 py-3 bg-blush/30 border-b border-blush flex items-center justify-between">
+                                      <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">
+                                        AI Cross-Validation
+                                      </p>
+                                      <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                                        agreed ? 'bg-sage/20 text-sage' : 'bg-amber-alert/20 text-amber-alert'
+                                      }`}>
+                                        {agreed ? '✓ Cross-validated' : '⚠ Needs review'}
+                                      </span>
+                                    </div>
+
+                                    <div className="p-4 space-y-3">
+                                      {/* Two method comparison */}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-cream rounded-xl p-3 border border-blush">
+                                          <p className="text-xs text-muted mb-1">WHO Clinical Rules</p>
+                                          <p className="text-xs font-bold text-charcoal">{whoLabel}</p>
+                                          <p className="text-xs text-muted/70 mt-0.5">WHO 2019 / FOGSI</p>
+                                        </div>
+                                        <div className="bg-cream rounded-xl p-3 border border-blush">
+                                          <p className="text-xs text-muted mb-1">AI Decision Tree</p>
+                                          <p className="text-xs font-bold text-charcoal">{treePred}</p>
+                                          <p className="text-xs text-muted/70 mt-0.5">{Math.round(treeConf * 100)}% confidence</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Decision path breadcrumb */}
+                                      <div>
+                                        <p className="text-xs text-muted mb-2">Decision path (AI reasoning):</p>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          {riskResult.decisionPath.map((step, i) => (
+                                            <span key={i} className="flex items-center gap-1">
+                                              {i > 0 && <ArrowRight size={10} className="text-muted/50 flex-shrink-0" />}
+                                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                i === riskResult.decisionPath.length - 1
+                                                  ? riskResult.level === 'critical' ? 'bg-rose-critical/15 text-rose-critical'
+                                                  : riskResult.level === 'high'     ? 'bg-terracotta/15 text-terracotta'
+                                                                                    : 'bg-sage/20 text-sage'
+                                                  : 'bg-blush text-charcoal'
+                                              }`}>
+                                                {step}
+                                              </span>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Similar patients count */}
+                                      <p className="text-xs text-muted/70 text-center border-t border-blush pt-2">
+                                        This pattern seen in <span className="font-semibold text-charcoal">{riskResult.similarCount}</span> out of 104 patients in our clinical database
+                                      </p>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })()}
 
                               {/* Buttons */}
                               <div className="flex gap-3">

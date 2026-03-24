@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(npm run:*)"
+    ]
+  },
   "enabledPlugins": {
     "ai-firstify@claude-plugins-official": true
   }

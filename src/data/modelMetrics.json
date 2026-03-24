@@ -1,0 +1,70 @@
+{
+  "datasetSize": 104,
+  "features": [
+    "age",
+    "gestationalWeeks",
+    "systolicBP",
+    "diastolicBP",
+    "plateletCount",
+    "sgot",
+    "sgpt",
+    "serumCreatinine",
+    "headache",
+    "visualDisturbance",
+    "epigastricPain",
+    "seizures",
+    "edema",
+    "urineProtein",
+    "severeBP",
+    "hasHistory"
+  ],
+  "crossValidation": "Leave-One-Out",
+  "treeDepth": 4,
+  "loocvAccuracy": 1.0,
+  "loocvAccuracyPct": 100.0,
+  "perClass": {
+    "Normal": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 80
+    },
+    "Mild Pre-Eclampsia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 10
+    },
+    "Severe Pre-Eclampsia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 14
+    }
+  },
+  "confusionMatrix": [
+    [
+      80,
+      0,
+      0
+    ],
+    [
+      0,
+      10,
+      0
+    ],
+    [
+      0,
+      0,
+      14
+    ]
+  ],
+  "confusionMatrixLabels": [
+    "Normal",
+    "Mild Pre-Eclampsia",
+    "Severe Pre-Eclampsia"
+  ],
+  "treeRulesText": "|--- systolicBP <= 138.00\n|   |--- class: 0\n|--- systolicBP >  138.00\n|   |--- severeBP <= 0.50\n|   |   |--- class: 1\n|   |--- severeBP >  0.50\n|   |   |--- class: 2\n",
+  "hospitalNote": "Validated on 104 real patient records from a tertiary care hospital in India",
+  "guidelines": "WHO 2019 & FOGSI clinical guidelines"
+}

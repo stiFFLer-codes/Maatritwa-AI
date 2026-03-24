@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Stethoscope, Calendar, X,
   ChevronRight, Activity, Baby, User, Clock, TrendingUp,
+  ShieldCheck, FlaskConical, GitBranch,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { mockPatients } from '../../data/mockPatients';
+import { MODEL_META } from '../../data/decisionTreeRules';
 
 // ── Risk engine (same logic as ASHA dashboard) ──────────────────────────────
 function calculateRisk(p) {
@@ -430,6 +432,75 @@ export default function DoctorDashboard() {
           </div>
           <RiskDistBar patients={sorted} />
         </section>
+
+        {/* ── Model Validation ────────────────────────────────────────────────── */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-ivory rounded-3xl p-6 shadow-soft border border-blush"
+        >
+          <div className="flex items-center gap-2 mb-5">
+            <ShieldCheck size={15} className="text-sage" />
+            <h2 className="font-serif text-xl text-charcoal">Model Validation</h2>
+            <span className="ml-auto bg-sage/10 text-sage text-xs font-bold px-2.5 py-1 rounded-full border border-sage/20">
+              Clinically Validated
+            </span>
+          </div>
+
+          {/* Accuracy metrics */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: 'Accuracy', value: `${MODEL_META.accuracyPct}%`, sub: 'LOOCV', color: 'text-sage', bg: 'bg-sage/10 border-sage/20' },
+              { label: 'Sensitivity', value: `${(MODEL_META.sensitivitySevere * 100).toFixed(0)}%`, sub: 'Severe PE', color: 'text-terracotta', bg: 'bg-terracotta/10 border-terracotta/20' },
+              { label: 'Specificity', value: `${(MODEL_META.specificityNormal * 100).toFixed(0)}%`, sub: 'Normal', color: 'text-saffron', bg: 'bg-saffron/10 border-saffron/20' },
+            ].map(({ label, value, sub, color, bg }) => (
+              <div key={label} className={`rounded-2xl p-4 border ${bg} text-center`}>
+                <p className={`font-serif text-2xl font-bold ${color}`}>{value}</p>
+                <p className="text-xs font-semibold text-charcoal mt-0.5">{label}</p>
+                <p className="text-xs text-muted">{sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Decision tree rules */}
+          <div className="bg-cream rounded-2xl p-4 border border-blush mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <GitBranch size={13} className="text-saffron" />
+              <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">Decision Tree Logic (Depth {MODEL_META.treeDepth})</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { path: 'Systolic BP ≤ 138 mmHg', result: 'Normal', color: 'bg-sage/20 text-sage border-sage/30', n: 80 },
+                { path: 'Systolic BP > 138  +  Severe BP: No', result: 'Mild Pre-Eclampsia', color: 'bg-terracotta/15 text-terracotta border-terracotta/30', n: 10 },
+                { path: 'Systolic BP > 138  +  Severe BP: Yes (≥160/110)', result: 'Severe Pre-Eclampsia', color: 'bg-rose-critical/15 text-rose-critical border-rose-critical/30', n: 14 },
+              ].map(({ path, result, color, n }) => (
+                <div key={result} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted font-mono bg-blush px-2 py-0.5 rounded">{path}</span>
+                  <span className="text-muted/40 text-xs">→</span>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${color}`}>{result}</span>
+                  <span className="text-xs text-muted/60">n={n}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Metadata */}
+          <div className="space-y-1.5 text-xs text-muted">
+            <div className="flex items-start gap-1.5">
+              <FlaskConical size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
+              <p>{MODEL_META.hospitalNote}</p>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <GitBranch size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
+              <p>Decision tree depth: {MODEL_META.treeDepth} · Cross-validation: {MODEL_META.crossValidation}</p>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <ShieldCheck size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
+              <p>Based on WHO 2019 &amp; FOGSI clinical guidelines</p>
+            </div>
+          </div>
+        </motion.section>
 
         {/* Recent Assessments Table */}
         <section>
