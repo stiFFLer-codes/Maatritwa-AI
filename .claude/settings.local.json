@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "ai-firstify@claude-plugins-official": true
+  }
+}
