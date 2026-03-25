@@ -215,6 +215,7 @@ export default function MotherDashboard() {
       sender: 'amma',
       text: response.message,
       isEmergency: response.isEmergency,
+      citations: response.citations || [],
       timestamp: new Date(),
     }]);
     setIsLoading(false);
@@ -378,16 +379,30 @@ export default function MotherDashboard() {
                       {msg.sender === 'amma' && (
                         <div className="flex-shrink-0 mt-auto"><AmmaAvatar size={28} /></div>
                       )}
-                      <div
-                        className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-                          msg.isEmergency
-                            ? 'bg-rose-critical/15 text-charcoal border-2 border-rose-critical/40 animate-pulse-border rounded-tl-sm'
-                            : msg.sender === 'amma'
-                              ? 'bg-ivory text-charcoal border border-blush rounded-tl-sm'
-                              : 'bg-saffron/15 text-charcoal border border-saffron/20 rounded-tr-sm'
-                        }`}
-                      >
-                        {msg.text}
+                      <div>
+                        <div
+                          className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                            msg.isEmergency
+                              ? 'bg-rose-critical/15 text-charcoal border-2 border-rose-critical/40 animate-pulse-border rounded-tl-sm'
+                              : msg.sender === 'amma'
+                                ? 'bg-ivory text-charcoal border border-blush rounded-tl-sm'
+                                : 'bg-saffron/15 text-charcoal border border-saffron/20 rounded-tr-sm'
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
+                        {msg.citations && msg.citations.length > 0 && (
+                          <div className="mt-1 ml-1 flex flex-wrap gap-1">
+                            {msg.citations.map((c, i) => (
+                              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/10 text-sage border border-sage/20">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {c.source}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   ))}
