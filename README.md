@@ -54,36 +54,18 @@ Every mother deserves a healthy pregnancy and safe delivery. **Maatritwa AI** br
 
 ```
 Maatritwa-AI/
-├── src/
-│   ├── components/
-│   │   ├── asha/          # ASHA-specific components
-│   │   │   ├── PatientForm.jsx
-│   │   │   ├── VitalsForm.jsx
-│   │   │   └── RiskResult.jsx
-│   │   ├── doctor/        # Doctor-specific components
-│   │   ├── mother/        # Mother-specific components
-│   │   └── shared/        # Reusable UI components
-│   │       ├── Button.jsx
-│   │       ├── Card.jsx
-│   │       ├── Header.jsx
-│   │       ├── Footer.jsx
-│   │       ├── PatientCard.jsx
-│   │       └── RiskOMeter.jsx
-│   ├── pages/
-│   │   ├── Landing.jsx           # Home page with role selection
-│   │   ├── asha/
-│   │   │   └── AshaDashboard.jsx
-│   │   ├── doctor/
-│   │   │   └── DoctorDashboard.jsx
-│   │   └── mother/
-│   │       └── MotherDashboard.jsx
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+├── backend/
+│   ├── app/
+│   ├── ml/
+│   ├── data/
+│   └── supabase/
 ├── docs/
 │   └── architecture.md    # System architecture & flowcharts
-├── package.json
-├── tailwind.config.js
 └── SETUP.md               # Detailed setup instructions
 ```
 
@@ -96,7 +78,8 @@ Maatritwa-AI/
 git clone <repository-url>
 cd Maatritwa-AI
 
-# 2. Install dependencies
+# 2. Install frontend dependencies
+cd frontend
 npm install
 
 # 3. Start development server

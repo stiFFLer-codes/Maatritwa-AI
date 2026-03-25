@@ -50,6 +50,7 @@ cd Maatritwa-AI
 ### Step 2: Install Dependencies
 
 ```bash
+cd frontend
 npm install
 ```
 
@@ -88,21 +89,17 @@ Navigate to: **http://localhost:5173/**
 
 ```
 Maatritwa-AI/
-├── src/                      # Source code
-│   ├── components/           # Reusable components
-│   │   ├── asha/            # ASHA-specific components
-│   │   ├── doctor/          # Doctor-specific components
-│   │   ├── mother/          # Mother-specific components
-│   │   └── shared/          # Shared UI components
-│   ├── pages/               # Page components
-│   ├── App.jsx              # Main app with routing
-│   ├── main.jsx             # Entry point
-│   └── index.css            # Global styles + Tailwind
-├── docs/                    # Documentation
-├── index.html               # HTML template
-├── package.json             # Dependencies & scripts
-├── tailwind.config.js       # Tailwind configuration
-└── vite.config.js           # Vite configuration
+├── frontend/                 # React + Vite app
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+├── backend/                  # FastAPI backend + ML + Supabase SQL
+│   ├── app/
+│   ├── ml/
+│   ├── data/
+│   └── supabase/
+└── docs/                     # Documentation
 ```
 
 ---
@@ -115,6 +112,8 @@ Maatritwa-AI/
 | `npm run build` | Create production build in `dist/` folder |
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint to check code quality |
+
+Run these commands from the `frontend` folder.
 
 ### Usage Examples
 
