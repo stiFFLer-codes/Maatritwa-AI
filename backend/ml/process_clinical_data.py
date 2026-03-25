@@ -1,7 +1,7 @@
 """
 process_clinical_data.py
 Reads Maatritva_AI_Data_collection.xlsx, anonymizes patient names,
-cleans fields, and exports src/data/clinicalPatients.json
+cleans fields, and exports frontend/src/data/clinicalPatients.json
 """
 
 import json
@@ -13,9 +13,9 @@ from pathlib import Path
 import pandas as pd
 
 # ── Resolve paths ─────────────────────────────────────────────────────────────
-ROOT = Path(__file__).resolve().parent.parent
-EXCEL = ROOT / "Maatritva_AI_Data_collection.xlsx"
-OUT   = ROOT / "src" / "data" / "clinicalPatients.json"
+ROOT = Path(__file__).resolve().parents[2]
+EXCEL = ROOT / "backend" / "data" / "raw" / "Maatritva_AI_Data_collection.xlsx"
+OUT   = ROOT / "frontend" / "src" / "data" / "clinicalPatients.json"
 
 if not EXCEL.exists():
     sys.exit(f"ERROR: Excel file not found at {EXCEL}")

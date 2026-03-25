@@ -10,6 +10,7 @@ import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { mockPatients } from '../../data/mockPatients';
 import { predictWithTree } from '../../data/decisionTreeRules';
+import { supabase } from '../../lib/supabaseClient';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
@@ -315,6 +316,8 @@ export default function AshaDashboard() {
   const [form, setForm]               = useState(EMPTY_FORM);
   const [riskResult, setRiskResult]   = useState(null);
   const [submitted, setSubmitted]     = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
 
@@ -339,8 +342,13 @@ export default function AshaDashboard() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setSubmitError('');
+    setIsSubmitting(true);
+
     const f = {
       ...form,
       age:              parseInt(form.age)              || 0,
@@ -371,31 +379,105 @@ export default function AshaDashboard() {
     const SIMILAR_COUNTS = { 'Normal': 80, 'Mild Pre-Eclampsia': 10, 'Severe Pre-Eclampsia': 14 };
     const similarCount = SIMILAR_COUNTS[treeResult.prediction] ?? 0;
 
-    setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error('Session expired. Please sign in again.');
+      }
 
-    const newPatient = {
-      id:               `p_new_${Date.now()}`,
-      name:             f.name,
-      age:              f.age,
-      gestationalWeeks: f.gestationalWeeks,
-      systolicBP:       f.systolicBP,
-      diastolicBP:      f.diastolicBP,
-      weight:           f.weight,
-      height:           f.height,
-      hemoglobin:       f.hemoglobin,
-      previousPreeclampsia: f.previousPreeclampsia,
-      diabetes:         f.diabetes,
-      firstPregnancy:   f.firstPregnancy,
-      lastVisitDate:    TODAY,
-      riskLevel:        result.level,
-      visits:           [],
-      ashaWorkerId:     'asha_01',
-    };
-    setPatients(prev => {
-      const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-      return [newPatient, ...prev].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
-    });
-    setSubmitted(true);
+      const token = sessionData.session.access_token;
+      const authHeaders = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // 1) Create patient row
+      const patientResp = await fetch('http://localhost:8000/asha/patients', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: f.name,
+          age: f.age,
+          weeks_pregnant: f.gestationalWeeks,
+          village: 'Unknown'
+        })
+      });
+      if (!patientResp.ok) {
+        throw new Error('Failed to save patient in database.');
+      }
+      const createdPatient = await patientResp.json();
+
+      // 2) Save vitals row
+      const vitalsResp = await fetch(`http://localhost:8000/asha/patients/${createdPatient.id}/vitals`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          blood_pressure_sys: f.systolicBP,
+          blood_pressure_dia: f.diastolicBP,
+          hemoglobin: f.hemoglobin,
+          weight_kg: f.weight,
+          symptoms: [
+            f.previousPreeclampsia ? 'Previous preeclampsia' : '',
+            f.diabetes ? 'Diabetes' : '',
+            f.firstPregnancy ? 'First pregnancy' : ''
+          ].filter(Boolean).join(', ') || null
+        })
+      });
+      if (!vitalsResp.ok) {
+        throw new Error('Failed to save vitals in database.');
+      }
+      const createdVitals = await vitalsResp.json();
+
+      // 3) Save risk assessment row
+      const predictResp = await fetch('http://localhost:8000/asha/predict', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          patient_id: createdPatient.id,
+          vitals_id: createdVitals.id,
+          blood_pressure_sys: f.systolicBP,
+          blood_pressure_dia: f.diastolicBP,
+          hemoglobin: f.hemoglobin,
+          weight_kg: f.weight,
+          weeks_pregnant: f.gestationalWeeks,
+          age: f.age
+        })
+      });
+      if (!predictResp.ok) {
+        throw new Error('Failed to save risk assessment in database.');
+      }
+
+      setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
+
+      const newPatient = {
+        id:               createdPatient.id,
+        name:             f.name,
+        age:              f.age,
+        gestationalWeeks: f.gestationalWeeks,
+        systolicBP:       f.systolicBP,
+        diastolicBP:      f.diastolicBP,
+        weight:           f.weight,
+        height:           f.height,
+        hemoglobin:       f.hemoglobin,
+        previousPreeclampsia: f.previousPreeclampsia,
+        diabetes:         f.diabetes,
+        firstPregnancy:   f.firstPregnancy,
+        lastVisitDate:    TODAY,
+        riskLevel:        result.level,
+        visits:           [],
+        ashaWorkerId:     'asha_01',
+      };
+
+      setPatients(prev => {
+        const o = { critical: 0, high: 1, moderate: 2, low: 3 };
+        return [newPatient, ...prev].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to save data to backend.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const closeForm = () => {
@@ -533,6 +615,12 @@ export default function AshaDashboard() {
                 {!submitted ? (
                   <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
+                    {submitError && (
+                      <div className="rounded-xl border border-rose-critical/30 bg-rose-critical/10 px-4 py-3 text-sm text-rose-critical">
+                        {submitError}
+                      </div>
+                    )}
+
                     {/* Voice microphone */}
                     {voiceAvailable && (
                       <div className="flex flex-col items-center gap-2 py-2">
@@ -599,10 +687,11 @@ export default function AshaDashboard() {
                     {/* Submit */}
                     <button
                       type="submit"
+                      disabled={isSubmitting}
                       className="w-full min-h-[52px] bg-saffron hover:bg-terracotta text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <Activity size={18} />
-                      {t('form.submit')}
+                      {isSubmitting ? 'Saving...' : t('form.submit')}
                     </button>
                   </form>
                 ) : (
