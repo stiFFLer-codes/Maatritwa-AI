@@ -5,12 +5,10 @@ import Button from "../shared/Button"
 function VitalsForm({ onPredict }) {
 
   const [vitals, setVitals] = useState({
-    blood_pressure_sys: "",
-    blood_pressure_dia: "",
-    weight_kg: "",
+    bloodPressure: "",
+    weight: "",
     hemoglobin: "",
-    pulse_rate: "",
-    symptoms: ""
+    complications: ""
   })
 
   const handleChange = (e) => {
@@ -23,20 +21,11 @@ function VitalsForm({ onPredict }) {
   const handleSubmit = (e) => {
     e.preventDefault()
 
-    const payload = {
-      blood_pressure_sys: Number(vitals.blood_pressure_sys),
-      blood_pressure_dia: Number(vitals.blood_pressure_dia),
-      weight_kg: Number(vitals.weight_kg),
-      hemoglobin: Number(vitals.hemoglobin),
-      pulse_rate: vitals.pulse_rate ? Number(vitals.pulse_rate) : null,
-      symptoms: vitals.symptoms || null
-    }
-
     if (onPredict) {
-      onPredict(payload)
+      onPredict(vitals)
     }
 
-    console.log("Vitals Payload:", payload)
+    console.log("Vitals:", vitals)
   }
 
   return (
@@ -48,65 +37,48 @@ function VitalsForm({ onPredict }) {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-4"
+        className="flex flex-col gap-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="number"
-            name="blood_pressure_sys"
-            placeholder="Systolic BP *"
-            value={vitals.blood_pressure_sys}
-            onChange={handleChange}
-            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-          />
-          <input
-            type="number"
-            name="blood_pressure_dia"
-            placeholder="Diastolic BP *"
-            value={vitals.blood_pressure_dia}
-            onChange={handleChange}
-            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="number"
-            name="weight_kg"
-            placeholder="Weight (kg) *"
-            step="0.1"
-            value={vitals.weight_kg}
-            onChange={handleChange}
-            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-          />
-          <input
-            type="number"
-            name="hemoglobin"
-            placeholder="Hemoglobin (g/dL) *"
-            step="0.1"
-            value={vitals.hemoglobin}
-            onChange={handleChange}
-            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-          />
-        </div>
+
+        <input
+          type="text"
+          name="bloodPressure"
+          placeholder="Blood Pressure (e.g. 120/80)"
+          value={vitals.bloodPressure}
+          onChange={handleChange}
+          className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+        />
+
         <input
           type="number"
-          name="pulse_rate"
-          placeholder="Pulse Rate (bpm)"
-          value={vitals.pulse_rate}
+          name="weight"
+          placeholder="Weight (kg)"
+          value={vitals.weight}
           onChange={handleChange}
           className="p-4 rounded-xl border border-warm-gray focus:outline-none"
         />
+
+        <input
+          type="number"
+          name="hemoglobin"
+          placeholder="Hemoglobin (g/dL)"
+          value={vitals.hemoglobin}
+          onChange={handleChange}
+          className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+        />
+
         <textarea
-          name="symptoms"
-          placeholder="Symptoms (optional)"
-          value={vitals.symptoms}
+          name="complications"
+          placeholder="Previous complications (optional)"
+          value={vitals.complications}
           onChange={handleChange}
-          rows="3"
           className="p-4 rounded-xl border border-warm-gray focus:outline-none"
         />
-        <Button size="lg" className="w-full">
-          Submit Vitals & Predict Eclampsia Risk
+
+        <Button size="lg">
+          Predict Risk
         </Button>
+
       </form>
 
     </Card>

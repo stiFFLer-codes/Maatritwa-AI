@@ -3,14 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Calendar, Plus, X, Mic, MicOff,
   Activity, Baby, User, Clock, ChevronRight, CheckCircle2,
-  ArrowRight, HeartPulse, Minus, Search, Wifi, WifiOff, Send,
+  ArrowRight, HeartPulse, Minus,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { mockPatients } from '../../data/mockPatients';
 import { predictWithModel } from '../../data/decisionTreeRules';
-import { supabase } from '../../lib/supabaseClient';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
@@ -136,57 +135,17 @@ function calculateRisk(patient) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const TODAY = new Date();
-const FOLLOW_UP_DAYS = 14;
-const OFFLINE_QUEUE_KEY = 'asha_pending_submissions_v1';
-
-const RISK_FILTERS = {
-  all: ['low', 'moderate', 'high', 'critical'],
-  critical: ['critical'],
-  elevated: ['moderate', 'high'],
-  safe: ['low'],
-};
+const TODAY = new Date('2026-03-24');
+const API_BASE_URL = 'http://localhost:8000';
 
 function daysSince(date) {
   const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  return Math.floor((now - d) / (1000 * 60 * 60 * 24));
-}
-
-function isVisitDue(date) {
-  return daysSince(date) >= FOLLOW_UP_DAYS;
+  return Math.floor((TODAY - d) / (1000 * 60 * 60 * 24));
 }
 
 function fmt(date) {
   const d = date instanceof Date ? date : new Date(date);
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
-
-function fmtTimestamp(date) {
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function mapRiskToFilter(level) {
-  if (level === 'critical') return 'critical';
-  if (level === 'high' || level === 'moderate') return 'elevated';
-  return 'safe';
-}
-
-function getPatientFlags(patient) {
-  const flags = [];
-  if (patient.systolicBP >= 140 || patient.diastolicBP >= 90) flags.push('High BP');
-  if (patient.hemoglobin && patient.hemoglobin < 11) flags.push('Anemia');
-  if (patient.diabetes) flags.push('Diabetes');
-  if (patient.previousPreeclampsia) flags.push('Prev PE');
-  if (patient.firstPregnancy) flags.push('Primigravida');
-  if (patient.edema) flags.push('Edema');
-  return flags.slice(0, 4);
 }
 
 const RISK_POS = { low: 12, moderate: 40, high: 68, critical: 88 };
@@ -205,37 +164,16 @@ const EMPTY_FORM = {
 };
 
 // ── NumberInput with ± buttons ────────────────────────────────────────────────
-function NumberInput({
-  label,
-  hint,
-  name,
-  value,
-  onChange,
-  min = 0,
-  max = 999,
-  step = 1,
-  required,
-  normalMin,
-  normalMax,
-  normalUnit = '',
-}) {
+function NumberInput({ label, hint, name, value, onChange, min = 0, max = 999, step = 1, required }) {
   const adjust = (delta) => {
     const cur = parseFloat(value) || 0;
     const next = Math.min(max, Math.max(min, +(cur + delta).toFixed(1)));
     onChange({ target: { name, value: String(next) } });
   };
-
-  const hasValue = value !== '';
-  const numericValue = Number(value);
-  const outOfRange = hasValue && (
-    (normalMin !== undefined && numericValue < normalMin) ||
-    (normalMax !== undefined && numericValue > normalMax)
-  );
-
   return (
     <div>
       <label className="block text-xs font-medium text-muted mb-1">{label}{hint && <span className="text-muted/60 ml-1">({hint})</span>}</label>
-      <div className={`flex items-center border-2 rounded-xl overflow-hidden bg-ivory focus-within:border-saffron transition-colors ${outOfRange ? 'border-rose-critical' : 'border-blush'}`}>
+      <div className="flex items-center border-2 border-blush rounded-xl overflow-hidden bg-ivory focus-within:border-saffron transition-colors">
         <button type="button" onClick={() => adjust(-step)}
           className="w-11 h-12 flex items-center justify-center text-terracotta hover:bg-blush transition-colors flex-shrink-0 text-lg font-bold">
           <Minus size={16} />
@@ -251,11 +189,6 @@ function NumberInput({
           <Plus size={16} />
         </button>
       </div>
-      {outOfRange && normalMin !== undefined && normalMax !== undefined && (
-        <p className="mt-1 text-xs text-rose-critical font-medium">
-          Normal: {normalMin}-{normalMax}{normalUnit}
-        </p>
-      )}
     </div>
   );
 }
@@ -282,85 +215,54 @@ function Toggle({ label, name, checked, onChange }) {
 }
 
 // ── Patient row card ─────────────────────────────────────────────────────────
-function PatientCard({ patient, t, onRefer, onQuickVitals }) {
-  const overdue = isVisitDue(patient.lastVisitDate);
-  const flags = getPatientFlags(patient);
-  const filterLevel = mapRiskToFilter(patient.riskLevel);
-  const syncStatus = patient.syncStatus ?? 'synced';
-
-  const cardBorder = filterLevel === 'critical'
-    ? 'border-rose-critical shadow-[0_0_0_3px_rgba(196,59,59,0.12)]'
-    : filterLevel === 'elevated'
-      ? 'border-amber-alert'
-      : 'border-sage/40';
-
+function PatientCard({ patient }) {
+  const overdue = daysSince(patient.lastVisitDate) >= 14;
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-ivory rounded-2xl px-4 py-4 shadow-soft border-2 hover:shadow-warm hover:-translate-y-0.5 transition-all duration-200 ${cardBorder}`}
+      className="bg-ivory rounded-2xl px-5 py-4 shadow-soft border border-blush hover:shadow-warm hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
+      onClick={() => console.log('Patient selected:', patient.name, patient.id)}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 pt-1">
-          <div className={`w-3.5 h-3.5 rounded-full ${
+      <div className="flex items-center gap-3">
+        {/* Risk dot */}
+        <div className="flex-shrink-0">
+          <div className={`w-3 h-3 rounded-full ${
             patient.riskLevel === 'critical' ? 'bg-rose-critical animate-pulse-dot' :
             patient.riskLevel === 'high'     ? 'bg-terracotta' :
             patient.riskLevel === 'moderate' ? 'bg-amber-alert' : 'bg-sage'
           }`} />
         </div>
 
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-serif text-base font-semibold text-charcoal truncate">
-            {patient.name} · {patient.age}y · Wk {patient.gestationalWeeks} · {patient.village || t('villageUnknown')}
+          <p className="font-serif text-base font-semibold text-charcoal truncate group-hover:text-terracotta transition-colors">
+            {patient.name}
           </p>
-          <div className="flex flex-wrap gap-2 mt-2 text-xs">
-            {flags.map((flag) => (
-              <span key={`${patient.id}-${flag}`} className="px-2.5 py-1 rounded-full bg-blush text-charcoal font-medium border border-warm-gray/60">
-                {flag}
-              </span>
-            ))}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted">
+            <span className="flex items-center gap-1"><User size={10} /> {patient.age} yrs</span>
+            <span className="flex items-center gap-1"><Baby size={10} /> Wk {patient.gestationalWeeks}</span>
+            <span className="flex items-center gap-1"><Activity size={10} /> {patient.systolicBP}/{patient.diastolicBP}</span>
             {overdue && (
-              <span className="px-2.5 py-1 rounded-full bg-rose-critical/12 text-rose-critical font-semibold border border-rose-critical/35">
-                {t('visitsDueBadge')}
+              <span className="flex items-center gap-1 text-rose-critical font-medium">
+                <Clock size={10} /> Overdue
               </span>
             )}
           </div>
-
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
-            <span className="flex items-center gap-1"><Activity size={11} /> {patient.systolicBP}/{patient.diastolicBP}</span>
-            <span className={`flex items-center gap-1 ${overdue ? 'text-rose-critical font-medium' : ''}`}>
-              <Clock size={11} /> {t('lastVisited')}: {fmtTimestamp(patient.lastVisitDate)}
-            </span>
-            <span className={`flex items-center gap-1 font-medium ${syncStatus === 'pending' ? 'text-amber-alert' : 'text-sage'}`}>
-              {syncStatus === 'pending' ? <WifiOff size={11} /> : <Wifi size={11} />}
-              {syncStatus === 'pending' ? t('pendingSync') : t('synced')}
-            </span>
-          </div>
         </div>
 
-        <div className="flex-shrink-0">
-          <RiskBadge level={patient.riskLevel} size="md" />
+        {/* Badge + chevron */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <RiskBadge level={patient.riskLevel} />
+          <ChevronRight size={14} className="text-muted group-hover:text-saffron transition-colors" />
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        {patient.riskLevel !== 'low' && (
-          <button
-            type="button"
-            onClick={() => onRefer(patient)}
-            className="h-9 px-3 rounded-xl text-xs font-semibold bg-rose-critical text-white hover:opacity-90"
-          >
-            {t('referToDoctor')}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onQuickVitals(patient)}
-          className="h-9 px-3 rounded-xl text-xs font-semibold bg-saffron text-white hover:bg-terracotta"
-        >
-          {t('submitNewVitals')}
-        </button>
+      {/* Last visit */}
+      <div className={`flex items-center gap-1 mt-2.5 text-xs ${overdue ? 'text-rose-critical' : 'text-muted/70'}`}>
+        <Clock size={10} />
+        Last visit: {fmt(patient.lastVisitDate)} ({daysSince(patient.lastVisitDate)}d ago)
       </div>
     </motion.div>
   );
@@ -405,11 +307,7 @@ function AlertCard({ patient, lang }) {
 export default function AshaDashboard() {
   const { t, lang } = useLanguage();
   const [patients, setPatients] = useState(() =>
-    [...mockPatients].map((p) => ({
-      ...p,
-      village: p.village || 'Village A',
-      syncStatus: 'synced',
-    })).sort((a, b) => {
+    [...mockPatients].sort((a, b) => {
       const o = { critical: 0, high: 1, moderate: 2, low: 3 };
       return o[a.riskLevel] - o[b.riskLevel];
     })
@@ -418,177 +316,25 @@ export default function AshaDashboard() {
   const [form, setForm]               = useState(EMPTY_FORM);
   const [riskResult, setRiskResult]   = useState(null);
   const [submitted, setSubmitted]     = useState(false);
-  const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [riskFilter, setRiskFilter] = useState('all');
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [pendingQueueCount, setPendingQueueCount] = useState(0);
-  const [syncingQueue, setSyncingQueue] = useState(false);
-  const [referralDraft, setReferralDraft] = useState(null);
-  const [quickVitalsPatient, setQuickVitalsPatient] = useState(null);
-  const [quickVitalsForm, setQuickVitalsForm] = useState({ systolicBP: '', diastolicBP: '', hemoglobin: '' });
-
-  const sortByRisk = (list) => {
-    const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-    return [...list].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
-  };
-
-  const readOfflineQueue = () => {
-    try {
-      const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const writeOfflineQueue = (queue) => {
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-    setPendingQueueCount(queue.length);
-  };
 
   useEffect(() => {
     setVoiceAvailable(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
   }, []);
 
-  useEffect(() => {
-    setPendingQueueCount(readOfflineQueue().length);
-
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
-
-  const saveVisitToBackend = async (f) => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData?.session?.access_token) {
-      throw new Error('Session expired. Please sign in again.');
-    }
-
-    const token = sessionData.session.access_token;
-    const authHeaders = {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-
-    const patientResp = await fetch('http://localhost:8000/asha/patients', {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        name: f.name,
-        age: f.age,
-        weeks_pregnant: f.gestationalWeeks,
-        village: f.village || 'Unknown'
-      })
-    });
-    if (!patientResp.ok) {
-      throw new Error('Failed to save patient in database.');
-    }
-    const createdPatient = await patientResp.json();
-
-    const vitalsResp = await fetch(`http://localhost:8000/asha/patients/${createdPatient.id}/vitals`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        blood_pressure_sys: f.systolicBP,
-        blood_pressure_dia: f.diastolicBP,
-        hemoglobin: f.hemoglobin,
-        weight_kg: f.weight,
-        symptoms: [
-          f.previousPreeclampsia ? 'Previous preeclampsia' : '',
-          f.diabetes ? 'Diabetes' : '',
-          f.firstPregnancy ? 'First pregnancy' : ''
-        ].filter(Boolean).join(', ') || null
-      })
-    });
-    if (!vitalsResp.ok) {
-      throw new Error('Failed to save vitals in database.');
-    }
-    const createdVitals = await vitalsResp.json();
-
-    const predictResp = await fetch('http://localhost:8000/asha/predict', {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        patient_id: createdPatient.id,
-        vitals_id: createdVitals.id,
-        blood_pressure_sys: f.systolicBP,
-        blood_pressure_dia: f.diastolicBP,
-        hemoglobin: f.hemoglobin,
-        weight_kg: f.weight,
-        weeks_pregnant: f.gestationalWeeks,
-        age: f.age
-      })
-    });
-    if (!predictResp.ok) {
-      throw new Error('Failed to save risk assessment in database.');
-    }
-
-    return createdPatient;
-  };
-
-  const flushOfflineQueue = async () => {
-    if (!isOnline || syncingQueue) return;
-    const queue = readOfflineQueue();
-    if (!queue.length) return;
-
-    setSyncingQueue(true);
-    const remaining = [];
-
-    for (const item of queue) {
-      try {
-        const createdPatient = await saveVisitToBackend(item.form);
-        setPatients((prev) => sortByRisk(prev.map((p) => (
-          p.id === item.tempId
-            ? { ...p, id: createdPatient.id, syncStatus: 'synced' }
-            : p
-        ))));
-      } catch {
-        remaining.push(item);
-      }
-    }
-
-    writeOfflineQueue(remaining);
-    setSyncingQueue(false);
-  };
-
-  useEffect(() => {
-    if (isOnline) {
-      flushOfflineQueue();
-    }
-  }, [isOnline]);
-
   // Stats
   const stats = useMemo(() => ({
     total:    patients.length,
     highRisk: patients.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical').length,
-    critical: patients.filter(p => p.riskLevel === 'critical').length,
-    due:      patients.filter(p => isVisitDue(p.lastVisitDate)).length,
+    due:      patients.filter(p => daysSince(p.lastVisitDate) >= 14).length,
   }), [patients]);
 
   const alerts = useMemo(() =>
     patients.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical'),
   [patients]);
-
-  const filteredPatients = useMemo(() => {
-    const text = searchQuery.trim().toLowerCase();
-    const allowed = RISK_FILTERS[riskFilter] ?? RISK_FILTERS.all;
-    return patients.filter((p) => {
-      const passesRisk = allowed.includes(p.riskLevel);
-      if (!passesRisk) return false;
-      if (!text) return true;
-      return p.name.toLowerCase().includes(text) || (p.village || '').toLowerCase().includes(text);
-    });
-  }, [patients, riskFilter, searchQuery]);
 
   // Form
   const handleChange = (e) => {
@@ -600,19 +346,67 @@ export default function AshaDashboard() {
     e.preventDefault();
     if (isSubmitting) return;
 
-    setSubmitError('');
     setIsSubmitting(true);
+    setSubmitError('');
+
+    const parseApiError = async (response, fallbackMessage) => {
+      try {
+        const data = await response.json();
+        if (Array.isArray(data?.detail)) {
+          return data.detail
+            .map((item) => `${item?.loc?.join('.') || 'field'}: ${item?.msg || 'invalid value'}`)
+            .join('; ');
+        }
+        if (typeof data?.detail === 'string' && data.detail) {
+          return data.detail;
+        }
+      } catch {
+        // Ignore parse errors and use fallback message.
+      }
+      return `${fallbackMessage} (HTTP ${response.status})`;
+    };
+
+    const toNumber = (value) => {
+      if (typeof value !== 'string') return Number.NaN;
+      const trimmed = value.trim();
+      if (!trimmed) return Number.NaN;
+      return Number(trimmed);
+    };
 
     const f = {
       ...form,
-      age:              parseInt(form.age)              || 0,
-      gestationalWeeks: parseInt(form.gestationalWeeks) || 0,
-      systolicBP:       parseInt(form.systolicBP)       || 0,
-      diastolicBP:      parseInt(form.diastolicBP)      || 0,
-      weight:           parseFloat(form.weight)         || 0,
-      height:           parseFloat(form.height)         || 0,
-      hemoglobin:       parseFloat(form.hemoglobin)     || 0,
+      age:              toNumber(form.age),
+      gestationalWeeks: toNumber(form.gestationalWeeks),
+      systolicBP:       toNumber(form.systolicBP),
+      diastolicBP:      toNumber(form.diastolicBP),
+      weight:           toNumber(form.weight),
+      height:           toNumber(form.height),
+      hemoglobin:       toNumber(form.hemoglobin),
     };
+
+    const fieldRules = [
+      { key: 'age', label: 'Age', min: 10, max: 60 },
+      { key: 'gestationalWeeks', label: 'Gestational weeks', min: 1, max: 45 },
+      { key: 'systolicBP', label: 'Systolic BP', min: 70, max: 240 },
+      { key: 'diastolicBP', label: 'Diastolic BP', min: 40, max: 140 },
+      { key: 'weight', label: 'Weight', min: 25, max: 250 },
+      { key: 'hemoglobin', label: 'Hemoglobin', min: 3, max: 25 },
+    ];
+
+    for (const rule of fieldRules) {
+      const value = f[rule.key];
+      if (!Number.isFinite(value)) {
+        setSubmitError(`${rule.label} is required.`);
+        setIsSubmitting(false);
+        return;
+      }
+      if (value < rule.min || value > rule.max) {
+        setSubmitError(`${rule.label} must be between ${rule.min} and ${rule.max}.`);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     // Derive severeBP (WHO threshold: systolic ≥160 or diastolic ≥110)
     f.severeBP = f.systolicBP >= 160 || f.diastolicBP >= 110;
 
@@ -629,24 +423,66 @@ export default function AshaDashboard() {
     const similarCount = SIMILAR_COUNTS[treeResult.prediction] ?? 0;
 
     try {
-      setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
+      const patientResp = await fetch(`${API_BASE_URL}/asha/patients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: f.name,
+          age: f.age,
+          weeks_pregnant: f.gestationalWeeks,
+          village: 'Unknown',
+        }),
+      });
+      if (!patientResp.ok) {
+        throw new Error(await parseApiError(patientResp, 'Failed to create patient record.'));
+      }
+      const createdPatient = await patientResp.json();
 
-      let patientId = `offline-${Date.now()}`;
-      if (isOnline) {
-        const createdPatient = await saveVisitToBackend(f);
-        patientId = createdPatient.id;
-      } else {
-        const queue = readOfflineQueue();
-        queue.push({ tempId: patientId, form: f });
-        writeOfflineQueue(queue);
+      const vitalsResp = await fetch(`${API_BASE_URL}/asha/patients/${createdPatient.id}/vitals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blood_pressure_sys: f.systolicBP,
+          blood_pressure_dia: f.diastolicBP,
+          hemoglobin: f.hemoglobin,
+          weight_kg: f.weight,
+          symptoms: [
+            f.previousPreeclampsia ? 'Previous preeclampsia' : '',
+            f.diabetes ? 'Diabetes' : '',
+            f.firstPregnancy ? 'First pregnancy' : '',
+          ].filter(Boolean).join(', ') || null,
+        }),
+      });
+      if (!vitalsResp.ok) {
+        throw new Error(await parseApiError(vitalsResp, 'Failed to save vitals record.'));
+      }
+      const createdVitals = await vitalsResp.json();
+
+      const predictResp = await fetch(`${API_BASE_URL}/asha/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: createdPatient.id,
+          vitals_id: createdVitals.id,
+          blood_pressure_sys: f.systolicBP,
+          blood_pressure_dia: f.diastolicBP,
+          hemoglobin: f.hemoglobin,
+          weight_kg: f.weight,
+          weeks_pregnant: f.gestationalWeeks,
+          age: f.age,
+        }),
+      });
+      if (!predictResp.ok) {
+        throw new Error(await parseApiError(predictResp, 'Failed to save risk assessment.'));
       }
 
+      setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
+
       const newPatient = {
-        id:               patientId,
+        id:               createdPatient.id,
         name:             f.name,
         age:              f.age,
         gestationalWeeks: f.gestationalWeeks,
-        village:          f.village || 'Unknown',
         systolicBP:       f.systolicBP,
         diastolicBP:      f.diastolicBP,
         weight:           f.weight,
@@ -658,14 +494,15 @@ export default function AshaDashboard() {
         lastVisitDate:    new Date(),
         riskLevel:        result.level,
         visits:           [],
-        ashaWorkerId:     'asha_01',
-        syncStatus:       isOnline ? 'synced' : 'pending',
+        ashaWorkerId:     createdPatient.asha_id,
       };
-
-      setPatients(prev => sortByRisk([newPatient, ...prev]));
+      setPatients(prev => {
+        const o = { critical: 0, high: 1, moderate: 2, low: 3 };
+        return [newPatient, ...prev].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
+      });
       setSubmitted(true);
     } catch (err) {
-      setSubmitError(err.message || 'Failed to save data to backend.');
+      setSubmitError(err?.message || 'Failed to submit data.');
     } finally {
       setIsSubmitting(false);
     }
@@ -676,51 +513,7 @@ export default function AshaDashboard() {
     setForm(EMPTY_FORM);
     setRiskResult(null);
     setSubmitted(false);
-  };
-
-  const handleRefer = (patient) => {
-    setReferralDraft({
-      patientName: patient.name,
-      age: patient.age,
-      weeks: patient.gestationalWeeks,
-      village: patient.village || t('villageUnknown'),
-      riskLevel: patient.riskLevel,
-      bp: `${patient.systolicBP}/${patient.diastolicBP}`,
-      notes: getPatientFlags(patient).join(', '),
-    });
-  };
-
-  const openQuickVitals = (patient) => {
-    setQuickVitalsPatient(patient);
-    setQuickVitalsForm({
-      systolicBP: String(patient.systolicBP || ''),
-      diastolicBP: String(patient.diastolicBP || ''),
-      hemoglobin: String(patient.hemoglobin || ''),
-    });
-  };
-
-  const submitQuickVitals = () => {
-    if (!quickVitalsPatient) return;
-
-    const updated = {
-      ...quickVitalsPatient,
-      systolicBP: parseInt(quickVitalsForm.systolicBP) || quickVitalsPatient.systolicBP,
-      diastolicBP: parseInt(quickVitalsForm.diastolicBP) || quickVitalsPatient.diastolicBP,
-      hemoglobin: parseFloat(quickVitalsForm.hemoglobin) || quickVitalsPatient.hemoglobin,
-      lastVisitDate: new Date(),
-    };
-    const risk = calculateRisk(updated);
-    updated.riskLevel = risk.level;
-    updated.syncStatus = isOnline ? 'synced' : 'pending';
-
-    setPatients((prev) => sortByRisk(prev.map((p) => (p.id === updated.id ? updated : p))));
-    setQuickVitalsPatient(null);
-
-    if (!isOnline) {
-      const queue = readOfflineQueue();
-      queue.push({ tempId: updated.id, form: updated });
-      writeOfflineQueue(queue);
-    }
+    setSubmitError('');
   };
 
   // Voice
@@ -764,7 +557,7 @@ export default function AshaDashboard() {
     rec.start();
   };
 
-  const todayStr = new Date().toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', {
+  const todayStr = TODAY.toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -786,29 +579,12 @@ export default function AshaDashboard() {
           <p className="text-sm text-muted mt-1">{todayStr}</p>
         </motion.div>
 
-        <div className={`rounded-2xl px-4 py-3 border flex items-center gap-2 text-sm ${
-          isOnline
-            ? 'bg-sage/10 border-sage/30 text-sage'
-            : 'bg-amber-alert/10 border-amber-alert/40 text-amber-alert'
-        }`}>
-          {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-          <p className="font-medium">
-            {isOnline ? (syncingQueue ? t('onlineBanner') : t('synced')) : t('offlineBanner')}
-          </p>
-          {pendingQueueCount > 0 && (
-            <span className="ml-auto px-2 py-0.5 rounded-full bg-white/80 text-xs font-semibold border border-current/25">
-              {pendingQueueCount} {t('pendingSync')}
-            </span>
-          )}
-        </div>
-
         {/* ── Stats ────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
             { label: t('totalPatients'), value: stats.total,    icon: Users,        color: 'bg-saffron/10 text-saffron' },
-            { label: t('highRisk'),      value: stats.highRisk, icon: AlertTriangle, color: 'bg-terracotta/10 text-terracotta' },
-            { label: t('criticalCount'), value: stats.critical, icon: AlertTriangle, color: 'bg-rose-critical/10 text-rose-critical' },
-            { label: t('visitsDueToday'),value: stats.due,      icon: Calendar,      color: 'bg-amber-alert/10 text-amber-alert' },
+            { label: t('highRisk'),      value: stats.highRisk, icon: AlertTriangle, color: 'bg-rose-critical/10 text-rose-critical' },
+            { label: t('dueForVisit'),   value: stats.due,      icon: Calendar,      color: 'bg-amber-alert/10 text-amber-alert' },
           ].map(({ label, value, icon: Icon, color }, i) => (
             <motion.div
               key={label}
@@ -840,40 +616,6 @@ export default function AshaDashboard() {
           {t('recordVisit')}
         </motion.button>
 
-        <div className="bg-ivory rounded-2xl border border-blush p-3 space-y-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('searchPatients')}
-              className="w-full h-10 pl-9 pr-3 border border-blush rounded-xl bg-cream text-sm"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ['all', t('filterAll')],
-              ['critical', t('filterCritical')],
-              ['elevated', t('filterElevated')],
-              ['safe', t('filterSafe')],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRiskFilter(value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  riskFilter === value
-                    ? 'bg-saffron text-white border-saffron'
-                    : 'bg-cream text-charcoal border-blush hover:border-saffron/60'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* ── Form slide-down ───────────────────────────────────────────────── */}
         <AnimatePresence>
           {showForm && (
@@ -902,12 +644,6 @@ export default function AshaDashboard() {
                 {!submitted ? (
                   <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
-                    {submitError && (
-                      <div className="rounded-xl border border-rose-critical/30 bg-rose-critical/10 px-4 py-3 text-sm text-rose-critical">
-                        {submitError}
-                      </div>
-                    )}
-
                     {/* Voice microphone */}
                     {voiceAvailable && (
                       <div className="flex flex-col items-center gap-2 py-2">
@@ -931,7 +667,6 @@ export default function AshaDashboard() {
                     {/* Patient Info */}
                     <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.patientInfo')}</p>
-                      <p className="text-xs text-muted mb-2">1. {t('savePatient')}</p>
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs font-medium text-muted mb-1">{t('form.name')}</label>
@@ -951,14 +686,13 @@ export default function AshaDashboard() {
                     {/* Vitals */}
                     <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.vitals')}</p>
-                      <p className="text-xs text-muted mb-2">2. {t('recordVitals')}</p>
                       <div className="grid grid-cols-2 gap-3">
-                        <NumberInput label={t('form.systolic')} hint={t('form.systolicHint')} name="systolicBP" value={form.systolicBP} onChange={handleChange} min={60} max={250} normalMin={90} normalMax={120} normalUnit=" mmHg" required />
-                        <NumberInput label={t('form.diastolic')} hint={t('form.diastolicHint')} name="diastolicBP" value={form.diastolicBP} onChange={handleChange} min={40} max={160} normalMin={60} normalMax={80} normalUnit=" mmHg" required />
-                        <NumberInput label={t('form.weight')} name="weight" value={form.weight} onChange={handleChange} min={30} max={150} normalMin={45} normalMax={80} normalUnit=" kg" step={0.5} required />
+                        <NumberInput label={t('form.systolic')} hint={t('form.systolicHint')} name="systolicBP" value={form.systolicBP} onChange={handleChange} min={60} max={250} required />
+                        <NumberInput label={t('form.diastolic')} hint={t('form.diastolicHint')} name="diastolicBP" value={form.diastolicBP} onChange={handleChange} min={40} max={160} required />
+                        <NumberInput label={t('form.weight')} name="weight" value={form.weight} onChange={handleChange} min={30} max={150} step={0.5} required />
                         <NumberInput label={t('form.height')} name="height" value={form.height} onChange={handleChange} min={100} max={220} required />
                         <div className="col-span-2">
-                          <NumberInput label={t('form.hemoglobin')} name="hemoglobin" value={form.hemoglobin} onChange={handleChange} min={4} max={20} normalMin={11} normalMax={14} normalUnit=" g/dL" step={0.1} required />
+                          <NumberInput label={t('form.hemoglobin')} name="hemoglobin" value={form.hemoglobin} onChange={handleChange} min={4} max={20} step={0.1} required />
                         </div>
                       </div>
                     </div>
@@ -980,8 +714,12 @@ export default function AshaDashboard() {
                       className="w-full min-h-[52px] bg-saffron hover:bg-terracotta text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <Activity size={18} />
-                      {isSubmitting ? 'Saving...' : `3. ${t('getRiskResult')}`}
+                      {isSubmitting ? 'Saving...' : t('form.submit')}
                     </button>
+
+                    {submitError && (
+                      <p className="text-sm font-medium text-rose-critical">{submitError}</p>
+                    )}
                   </form>
                 ) : (
 
@@ -1067,11 +805,6 @@ export default function AshaDashboard() {
                                   </p>
                                   <p className={`text-sm font-semibold ${rs.text} ${isCritical ? 'text-base' : ''}`}>
                                     {lang === 'hi' ? riskResult.action.hi : riskResult.action.en}
-                                  </p>
-                                  <p className="mt-2 text-sm font-bold text-charcoal">
-                                    {['critical', 'high'].includes(riskResult.level)
-                                      ? t('ashaPlainActionHindi.referNow')
-                                      : t('ashaPlainActionHindi.recheckNextWeek')}
                                   </p>
                                 </div>
                               </div>
@@ -1233,99 +966,12 @@ export default function AshaDashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Users size={15} className="text-saffron" />
             <h2 className="font-serif text-lg text-charcoal">{t('allPatients')}</h2>
-            <span className="ml-auto text-xs text-muted">{filteredPatients.length} {t('total')}</span>
+            <span className="ml-auto text-xs text-muted">{patients.length} {t('total')}</span>
           </div>
-
-          {filteredPatients.length === 0 ? (
-            <div className="bg-ivory border border-blush rounded-2xl p-6 text-center text-sm text-muted">
-              {t('noPatientsMatch')}
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {filteredPatients.map((p) => (
-                <PatientCard
-                  key={p.id}
-                  patient={p}
-                  t={t}
-                  onRefer={handleRefer}
-                  onQuickVitals={openQuickVitals}
-                />
-              ))}
-            </div>
-          )}
+          <div className="space-y-2.5">
+            {patients.map(p => <PatientCard key={p.id} patient={p} />)}
+          </div>
         </section>
-
-        <AnimatePresence>
-          {referralDraft && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-charcoal/35 backdrop-blur-[1px] p-4 flex items-center justify-center"
-            >
-              <motion.div
-                initial={{ y: 16, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 16, opacity: 0 }}
-                className="w-full max-w-md rounded-3xl bg-ivory border-2 border-rose-critical/30 p-5 shadow-warm-lg"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-xl text-charcoal">{t('referToDoctor')}</h3>
-                  <button type="button" className="text-muted" onClick={() => setReferralDraft(null)}><X size={18} /></button>
-                </div>
-                <div className="space-y-1 text-sm text-charcoal">
-                  <p><span className="font-semibold">{referralDraft.patientName}</span> · {referralDraft.age}y · Wk {referralDraft.weeks}</p>
-                  <p>{referralDraft.village}</p>
-                  <p>BP: {referralDraft.bp}</p>
-                  <p>{t('riskLevels.' + referralDraft.riskLevel)}</p>
-                  {referralDraft.notes && <p className="text-muted">{referralDraft.notes}</p>}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <button type="button" className="flex-1 h-10 rounded-xl border border-blush text-charcoal" onClick={() => setReferralDraft(null)}>
-                    {t('closePanel')}
-                  </button>
-                  <button type="button" className="flex-1 h-10 rounded-xl bg-rose-critical text-white font-semibold flex items-center justify-center gap-2" onClick={() => setReferralDraft(null)}>
-                    <Send size={14} /> {t('referToDoctor')}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {quickVitalsPatient && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-charcoal/30 p-0 md:p-4 flex items-end md:items-center justify-center"
-            >
-              <motion.div
-                initial={{ y: 24, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 24, opacity: 0 }}
-                className="w-full md:max-w-md rounded-t-3xl md:rounded-3xl bg-ivory border border-blush p-5"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-lg text-charcoal">{t('submitNewVitals')}</h3>
-                  <button type="button" className="text-muted" onClick={() => setQuickVitalsPatient(null)}><X size={18} /></button>
-                </div>
-                <p className="text-sm text-muted mb-3">{quickVitalsPatient.name}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <NumberInput label={t('form.systolic')} name="systolicBP" value={quickVitalsForm.systolicBP} onChange={(e) => setQuickVitalsForm((prev) => ({ ...prev, systolicBP: e.target.value }))} min={60} max={250} normalMin={90} normalMax={120} normalUnit=" mmHg" required />
-                  <NumberInput label={t('form.diastolic')} name="diastolicBP" value={quickVitalsForm.diastolicBP} onChange={(e) => setQuickVitalsForm((prev) => ({ ...prev, diastolicBP: e.target.value }))} min={40} max={160} normalMin={60} normalMax={80} normalUnit=" mmHg" required />
-                  <div className="col-span-2">
-                    <NumberInput label={t('form.hemoglobin')} name="hemoglobin" value={quickVitalsForm.hemoglobin} onChange={(e) => setQuickVitalsForm((prev) => ({ ...prev, hemoglobin: e.target.value }))} min={4} max={20} normalMin={11} normalMax={14} normalUnit=" g/dL" required />
-                  </div>
-                </div>
-                <button type="button" onClick={submitQuickVitals} className="w-full h-11 mt-4 rounded-xl bg-saffron text-white font-semibold">
-                  {t('recordVitals')}
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="h-8" />
       </div>
