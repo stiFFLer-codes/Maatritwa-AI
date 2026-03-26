@@ -9,7 +9,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { mockPatients } from '../../data/mockPatients';
-import { predictWithTree } from '../../data/decisionTreeRules';
+import { predictWithModel } from '../../data/decisionTreeRules';
 import { supabase } from '../../lib/supabaseClient';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
@@ -617,17 +617,12 @@ export default function AshaDashboard() {
     f.severeBP = f.systolicBP >= 160 || f.diastolicBP >= 110;
 
     const result = calculateRisk(f);
-    const treeResult = predictWithTree(f);
+    const treeResult = predictWithModel(f);
 
-    // Build decision path breadcrumbs
-    const decisionPath = [];
-    if (f.systolicBP <= 138) {
-      decisionPath.push(`BP: ${f.systolicBP} mmHg ≤ 138`);
-      decisionPath.push('Severe BP: No');
-    } else {
-      decisionPath.push(`BP: ${f.systolicBP} mmHg > 138`);
-      decisionPath.push(f.severeBP ? `Severe BP: Yes (≥160/110)` : `Severe BP: No`);
-    }
+    // Build decision path from feature contributions
+    const decisionPath = treeResult.featureContributions
+      .slice(0, 3)
+      .map(c => `${c.feature}: ${c.value}`);
     decisionPath.push(treeResult.prediction.toUpperCase());
 
     const SIMILAR_COUNTS = { 'Normal': 80, 'Mild Pre-Eclampsia': 10, 'Severe Pre-Eclampsia': 14 };
@@ -1120,7 +1115,7 @@ export default function AshaDashboard() {
                                           <p className="text-xs text-muted/70 mt-0.5">WHO 2019 / FOGSI</p>
                                         </div>
                                         <div className="bg-cream rounded-xl p-3 border border-blush">
-                                          <p className="text-xs text-muted mb-1">AI Decision Tree</p>
+                                          <p className="text-xs text-muted mb-1">AI Gradient Boosting</p>
                                           <p className="text-xs font-bold text-charcoal">{treePred}</p>
                                           <p className="text-xs text-muted/70 mt-0.5">{Math.round(treeConf * 100)}% confidence</p>
                                         </div>
@@ -1146,6 +1141,27 @@ export default function AshaDashboard() {
                                           ))}
                                         </div>
                                       </div>
+
+                                      {/* Feature contributions */}
+                                      {riskResult.treeResult.featureContributions && riskResult.treeResult.featureContributions.length > 0 && (
+                                        <div className="border-t border-blush pt-2">
+                                          <p className="text-xs text-muted mb-2">Key risk factors:</p>
+                                          <div className="space-y-1">
+                                            {riskResult.treeResult.featureContributions.slice(0, 4).map((c, i) => (
+                                              <div key={i} className="flex items-center gap-2">
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                  c.impact === 'critical' ? 'bg-rose-critical' : c.impact === 'high' ? 'bg-terracotta' : 'bg-amber-alert'
+                                                }`} />
+                                                <span className="text-xs text-charcoal font-medium">{c.feature}</span>
+                                                <span className="text-xs text-muted">{c.value}</span>
+                                                <span className={`ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                                  c.impact === 'critical' ? 'bg-rose-critical/10 text-rose-critical' : c.impact === 'high' ? 'bg-terracotta/10 text-terracotta' : 'bg-amber-alert/10 text-amber-alert'
+                                                }`}>{c.impact}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
 
                                       {/* Similar patients count */}
                                       <p className="text-xs text-muted/70 text-center border-t border-blush pt-2">
