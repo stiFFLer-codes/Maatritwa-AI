@@ -5,10 +5,12 @@ import Button from "../shared/Button"
 function VitalsForm({ onPredict }) {
 
   const [vitals, setVitals] = useState({
-    bloodPressure: "",
-    weight: "",
+    blood_pressure_sys: "",
+    blood_pressure_dia: "",
+    weight_kg: "",
     hemoglobin: "",
-    complications: ""
+    pulse_rate: "",
+    symptoms: ""
   })
 
   const handleChange = (e) => {
@@ -21,11 +23,20 @@ function VitalsForm({ onPredict }) {
   const handleSubmit = (e) => {
     e.preventDefault()
 
-    if (onPredict) {
-      onPredict(vitals)
+    const payload = {
+      blood_pressure_sys: Number(vitals.blood_pressure_sys),
+      blood_pressure_dia: Number(vitals.blood_pressure_dia),
+      weight_kg: Number(vitals.weight_kg),
+      hemoglobin: Number(vitals.hemoglobin),
+      pulse_rate: vitals.pulse_rate ? Number(vitals.pulse_rate) : null,
+      symptoms: vitals.symptoms || null
     }
 
-    console.log("Vitals:", vitals)
+    if (onPredict) {
+      onPredict(payload)
+    }
+
+    console.log("Vitals Payload:", payload)
   }
 
   return (
@@ -37,48 +48,65 @@ function VitalsForm({ onPredict }) {
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-4"
+        className="space-y-4"
       >
-
-        <input
-          type="text"
-          name="bloodPressure"
-          placeholder="Blood Pressure (e.g. 120/80)"
-          value={vitals.bloodPressure}
-          onChange={handleChange}
-          className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-        />
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            type="number"
+            name="blood_pressure_sys"
+            placeholder="Systolic BP *"
+            value={vitals.blood_pressure_sys}
+            onChange={handleChange}
+            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+          />
+          <input
+            type="number"
+            name="blood_pressure_dia"
+            placeholder="Diastolic BP *"
+            value={vitals.blood_pressure_dia}
+            onChange={handleChange}
+            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            type="number"
+            name="weight_kg"
+            placeholder="Weight (kg) *"
+            step="0.1"
+            value={vitals.weight_kg}
+            onChange={handleChange}
+            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+          />
+          <input
+            type="number"
+            name="hemoglobin"
+            placeholder="Hemoglobin (g/dL) *"
+            step="0.1"
+            value={vitals.hemoglobin}
+            onChange={handleChange}
+            className="p-4 rounded-xl border border-warm-gray focus:outline-none"
+          />
+        </div>
         <input
           type="number"
-          name="weight"
-          placeholder="Weight (kg)"
-          value={vitals.weight}
+          name="pulse_rate"
+          placeholder="Pulse Rate (bpm)"
+          value={vitals.pulse_rate}
           onChange={handleChange}
           className="p-4 rounded-xl border border-warm-gray focus:outline-none"
         />
-
-        <input
-          type="number"
-          name="hemoglobin"
-          placeholder="Hemoglobin (g/dL)"
-          value={vitals.hemoglobin}
-          onChange={handleChange}
-          className="p-4 rounded-xl border border-warm-gray focus:outline-none"
-        />
-
         <textarea
-          name="complications"
-          placeholder="Previous complications (optional)"
-          value={vitals.complications}
+          name="symptoms"
+          placeholder="Symptoms (optional)"
+          value={vitals.symptoms}
           onChange={handleChange}
+          rows="3"
           className="p-4 rounded-xl border border-warm-gray focus:outline-none"
         />
-
-        <Button size="lg">
-          Predict Risk
+        <Button size="lg" className="w-full">
+          Submit Vitals & Predict Eclampsia Risk
         </Button>
-
       </form>
 
     </Card>

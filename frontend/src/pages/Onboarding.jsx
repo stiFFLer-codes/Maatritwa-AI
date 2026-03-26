@@ -81,8 +81,8 @@ const RoleCard = ({ icon: Icon, title, description, selected, onClick }) => (
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
-  const { language } = useLanguage();
-  const t = translations[language] || translations.en;
+  const { lang } = useLanguage();
+  const t = translations[lang] || translations.en;
 
   const [selectedRole, setSelectedRole] = useState('');
   const [error, setError] = useState('');
@@ -130,15 +130,8 @@ export default function Onboarding() {
         throw new Error('Unable to verify session after role update. Please sign in again.');
       }
 
-      const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!meResp.ok) {
-        const detail = await meResp.text();
-        throw new Error(detail || 'Failed to create user profile.');
-      }
+// Mock onboarding - auth disabled
+navigate('/asha');  // Default to ASHA dashboard
 
       // Redirect to appropriate dashboard
       const dashboards = {

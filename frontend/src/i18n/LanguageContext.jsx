@@ -1,10 +1,17 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { translations } from './translations';
 
 const LanguageContext = createContext(null);
+const DEFAULT_LANGUAGE = 'hi';
+const STORAGE_KEY = 'maatritwa-language';
 
 export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState('hi'); // Default Hindi for ASHA workers
+  const [lang, setLang] = useState(() => localStorage.getItem(STORAGE_KEY) || DEFAULT_LANGUAGE);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, lang);
+    document.documentElement.lang = lang === 'hi' ? 'hi-IN' : 'en';
+  }, [lang]);
 
   const t = (key) => {
     const keys = key.split('.');
@@ -16,7 +23,15 @@ export function LanguageProvider({ children }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider
+      value={{
+        lang,
+        language: lang,
+        setLang,
+        setLanguage: setLang,
+        t
+      }}
+    >
       {children}
     </LanguageContext.Provider>
   );
