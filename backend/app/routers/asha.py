@@ -104,11 +104,11 @@ def _get_risk_predictor(request: Request) -> RiskPredictor:
 @asha_router.post("/patients", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
 def create_patient(
     payload: PatientCreateRequest,
-    # current_user: CurrentUser = Depends(require_role("asha")),  # Auth disabled
+    current_user: CurrentUser = Depends(require_role("asha")),
     supabase: Client = Depends(get_supabase),
 ) -> PatientResponse:
     insert_payload = {
-        "asha_id": "mock_asha_id",  # Mock since auth disabled
+        "asha_id": current_user.id,
         "mother_id": payload.mother_id,
         "name": payload.name,
         "age": payload.age,
@@ -163,10 +163,24 @@ def list_asha_patients(
 def submit_vitals(
     payload: VitalsCreateRequest,
     patient_id: str = Path(min_length=1),
-    # current_user: CurrentUser = Depends(require_role("asha")),  # Auth disabled
+    current_user: CurrentUser = Depends(require_role("asha")),
     supabase: Client = Depends(get_supabase),
 ) -> VitalsResponse:
-    # Ownership check skipped (auth disabled)
+    patient_response = (
+        supabase.table("patients")
+        .select("id, asha_id")
+        .eq("id", patient_id)
+        .eq("asha_id", current_user.id)
+        .limit(1)
+        .execute()
+    )
+    owned_patient = _single_row(patient_response.data)
+    if not owned_patient:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The provided patient_id does not belong to the current ASHA.",
+        )
+
     insert_payload = {
         "patient_id": patient_id,
         "blood_pressure_sys": payload.blood_pressure_sys,

@@ -116,12 +116,45 @@ def _ensure_user_row(supabase: Client, user_id: str, payload: dict[str, Any]) ->
     return created_row
 
 
+def _get_default_asha_user_id(supabase: Client) -> Optional[str]:
+    profile_response = (
+        supabase.table("asha_profiles")
+        .select("user_id")
+        .limit(1)
+        .execute()
+    )
+    profile_row = _single_payload(profile_response.data)
+    user_id = profile_row.get("user_id") if profile_row else None
+    if isinstance(user_id, str) and user_id:
+        return user_id
+
+    users_response = (
+        supabase.table("users")
+        .select("id")
+        .eq("role", "asha")
+        .limit(1)
+        .execute()
+    )
+    user_row = _single_payload(users_response.data)
+    fallback_id = user_row.get("id") if user_row else None
+    if isinstance(fallback_id, str) and fallback_id:
+        return fallback_id
+
+    return None
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase),
 ) -> CurrentUser:
-    # DISABLED AUTH: Return mock user (asha/doctor/mother work without token)
-    return CurrentUser(id="mock_" + "asha", role="asha")  # Default asha; override per route if needed
+    # DISABLED AUTH: Resolve to an existing ASHA user so UUID foreign keys remain valid.
+    default_asha_id = _get_default_asha_user_id(supabase)
+    if not default_asha_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No ASHA user found. Create one row in users/asha_profiles before using ASHA APIs.",
+        )
+    return CurrentUser(id=default_asha_id, role="asha")
 
 
 def require_role(required_role: str):

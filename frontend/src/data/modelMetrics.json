@@ -1,59 +1,80 @@
 {
-  "algorithm": "GradientBoosting",
-  "trainingDataSize": 2000,
-  "trainingDataType": "Synthetic (distribution-matched to real hospital data)",
-  "validationDataSize": 104,
-  "validationDataType": "Real hospital patients (held-out test set)",
-  "methodology": "Train on synthetic -> Validate on real -> Zero data leakage",
+  "algorithm": "Gradient Boosting (sklearn)",
+  "nEstimators": 150,
+  "maxDepth": 4,
+  "learningRate": 0.1,
   "features": [
     "age",
     "gestationalWeeks",
     "systolicBP",
     "diastolicBP",
-    "plateletCount",
-    "sgot",
-    "sgpt",
-    "serumCreatinine",
+    "gravida",
+    "parity",
     "headache",
     "visualDisturbance",
-    "epigastricPain",
-    "seizures",
     "edema",
-    "urineProtein",
-    "severeBP",
-    "hasHistory"
+    "seizures",
+    "hasDiabetes"
   ],
-  "validationAccuracy": 1.0,
-  "validationAccuracyPct": 100.0,
+  "featureCount": 11,
+  "featureLevel": "ASHA (field-collectible, no lab tests)",
+  "topFeatures": [
+    "diastolicBP",
+    "systolicBP",
+    "visualDisturbance",
+    "headache",
+    "edema"
+  ],
+  "featureImportance": {
+    "diastolicBP": 0.4258,
+    "systolicBP": 0.3634,
+    "visualDisturbance": 0.1373,
+    "headache": 0.0477,
+    "edema": 0.0104,
+    "gestationalWeeks": 0.0081,
+    "age": 0.0052,
+    "parity": 0.0008,
+    "gravida": 0.0007,
+    "hasDiabetes": 0.0005,
+    "seizures": 0.0001
+  },
+  "trainingDataSize": 2006,
+  "trainingDataType": "Synthetic (distribution-matched to real hospital data)",
+  "trainingAccuracy": 100.0,
+  "crossValidation5Fold": 98.6,
+  "validationDataSize": 104,
+  "validationDataType": "Real hospital patients (held-out test set)",
+  "validationAccuracy": 98.1,
+  "methodology": "Train on synthetic → Validate on real → Zero data leakage",
   "perClass": {
-    "Mild Pre-Eclampsia": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+    "Normal": {
+      "precision": 0.9,
+      "recall": 0.9,
+      "f1": 0.9,
       "support": 10
     },
-    "Normal": {
+    "Mild Pre-Eclampsia": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
+      "recall": 0.988,
+      "f1": 0.994,
       "support": 80
     },
     "Severe Pre-Eclampsia": {
-      "precision": 1.0,
+      "precision": 0.933,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.966,
       "support": 14
     }
   },
   "confusionMatrix": [
     [
-      10,
+      9,
       0,
-      0
+      1
     ],
     [
-      0,
-      80,
+      1,
+      79,
       0
     ],
     [
@@ -63,35 +84,16 @@
     ]
   ],
   "confusionMatrixLabels": [
-    "Mild Pre-Eclampsia",
     "Normal",
+    "Mild Pre-Eclampsia",
     "Severe Pre-Eclampsia"
   ],
-  "featureImportance": {
-    "systolicBP": 0.5154834077779581,
-    "severeBP": 0.4845165922220323,
-    "plateletCount": 6.986384340545811e-15,
-    "serumCreatinine": 1.9349700866867053e-15,
-    "sgpt": 3.0829130606461013e-16,
-    "sgot": 2.2837697099688484e-16,
-    "age": 2.0763281089029052e-16,
-    "gestationalWeeks": 3.8302612919440356e-17,
-    "epigastricPain": 0.0,
-    "seizures": 0.0,
-    "edema": 0.0,
-    "urineProtein": 0.0,
-    "visualDisturbance": -3.280891038907903e-19,
-    "hasHistory": -1.2938250669480203e-18,
-    "headache": -7.331675379372117e-18,
-    "diastolicBP": -2.681275561103899e-17
+  "severePERecall": 100.0,
+  "learnedThresholds": {
+    "mildBPThreshold": 136,
+    "severeBPThreshold": 177,
+    "severeBPWithSymptoms": 159
   },
-  "topFeatures": [
-    "systolicBP",
-    "severeBP",
-    "plateletCount",
-    "serumCreatinine",
-    "sgpt"
-  ],
-  "hospitalNote": "Trained on 2000 synthetic patients, validated on 104 real patient records from a tertiary care hospital in India",
+  "hospitalNote": "Trained on 2,006 synthetic patients. Validated on 104 real patient records from a tertiary care hospital in India.",
   "guidelines": "WHO 2019 & FOGSI clinical guidelines"
 }
