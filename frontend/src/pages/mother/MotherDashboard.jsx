@@ -3,11 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, Heart, Leaf, Droplets, Sun, Apple } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
-import { demoMotherPatient } from '../../data/mockPatients';
 import { chatWithAmma } from '../../services/sarvamChat';
 
-// ── Demo patient ──────────────────────────────────────────────────────────────
-const PATIENT = demoMotherPatient; // Priya Sharma, week 24, low risk
+// ── Demo patient state ─────────────────────────────────────────────────────────
+// In production, this would be fetched from /mother/profile or authenticated endpoint
+const DEFAULT_PATIENT = {
+  id: 'MOT-001',
+  name: 'Priya Sharma',
+  age: 28,
+  phone: '9876543210',
+  gestationalWeeks: 24,
+  riskLevel: 'low',
+  systolicBP: 118,
+  diastolicBP: 76,
+  hemoglobin: 11.8,
+  weight: 65,
+  height: 162,
+};
 
 // ── Pregnancy ring SVG ────────────────────────────────────────────────────────
 function PregnancyRing({ week = 24, total = 40, lang = 'hi' }) {
@@ -221,7 +233,7 @@ export default function MotherDashboard() {
     setIsLoading(false);
   };
 
-  const risk = PATIENT.riskLevel || 'low';
+  const risk = patient.riskLevel || 'low';
   const riskMsg = RISK_MESSAGES[risk];
 
   return (
@@ -246,7 +258,7 @@ export default function MotherDashboard() {
               <h1 className="font-serif text-3xl text-charcoal">
                 {lang === 'hi' ? 'नमस्ते बेटी 🙏' : 'Hello, dear 🙏'}
               </h1>
-              <p className="text-sm text-muted mt-1">{PATIENT.name}</p>
+              <p className="text-sm text-muted mt-1">{patient.name}</p>
             </motion.div>
 
             {/* Pregnancy Progress */}
@@ -259,7 +271,7 @@ export default function MotherDashboard() {
               <h2 className="font-serif text-xl text-charcoal text-center mb-6">
                 {lang === 'hi' ? 'गर्भावस्था प्रगति' : 'Pregnancy Progress'}
               </h2>
-              <PregnancyRing week={PATIENT.gestationalWeeks} total={40} lang={lang} />
+              <PregnancyRing week={patient.gestationalWeeks} total={40} lang={lang} />
             </motion.div>
 
             {/* Health Summary */}
@@ -278,11 +290,11 @@ export default function MotherDashboard() {
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: lang === 'hi' ? 'BP' : 'Blood Pressure', value: `${PATIENT.systolicBP}/${PATIENT.diastolicBP} mmHg` },
-                  { label: lang === 'hi' ? 'हीमोग्लोबिन' : 'Haemoglobin', value: PATIENT.hemoglobin ? `${PATIENT.hemoglobin} g/dL` : '—' },
+                  { label: lang === 'hi' ? 'BP' : 'Blood Pressure', value: `${patient.systolicBP}/${patient.diastolicBP} mmHg` },
+                  { label: lang === 'hi' ? 'हीमोग्लोबिन' : 'Haemoglobin', value: patient.hemoglobin ? `${patient.hemoglobin} g/dL` : '—' },
                   {
                     label: lang === 'hi' ? 'अंतिम विज़िट' : 'Last Visit',
-                    value: PATIENT.lastVisitDate?.toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'short' }) ?? '—',
+                    value: patient.lastVisitDate?.toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'short' }) ?? '—',
                   },
                   { label: lang === 'hi' ? 'अगली विज़िट' : 'Next Visit', value: lang === 'hi' ? '7 दिन बाद' : 'In 7 days' },
                 ].map(({ label, value }) => (

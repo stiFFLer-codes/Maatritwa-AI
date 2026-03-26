@@ -35,3 +35,6 @@ def get_supabase_jwt_secret() -> str:
             detail="SUPABASE_JWT_SECRET is not configured.",
         )
     return secret
+
+import os
+print(os.getenv("SUPABASE_URL"))

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Stethoscope, Calendar, X,
@@ -8,7 +8,6 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
-import { mockPatients } from '../../data/mockPatients';
 import { MODEL_META } from '../../data/decisionTreeRules';
 
 // ── Risk engine (same logic as ASHA dashboard) ──────────────────────────────
@@ -302,11 +301,31 @@ function PatientDetailPanel({ patient, onClose, lang }) {
 export default function DoctorDashboard() {
   const { t, lang } = useLanguage();
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patients, setPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [patientsError, setPatientsError] = useState('');
+
+  // Fetch patients from backend API
+  useEffect(() => {
+    setLoadingPatients(true);
+    fetch('http://127.0.0.1:8000/asha/patients')
+      .then(res => res.json())
+      .then(data => {
+        setPatients(Array.isArray(data) ? data : []);
+        setPatientsError('');
+      })
+      .catch(err => {
+        console.error('Error fetching patients:', err);
+        setPatientsError('Failed to load patients. Please try again.');
+        setPatients([]);
+      })
+      .finally(() => setLoadingPatients(false));
+  }, []);
 
   const sorted = useMemo(() => {
     const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-    return [...mockPatients].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
-  }, []);
+    return [...patients].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
+  }, [patients]);
 
   const stats = useMemo(() => ({
     total:    sorted.length,
