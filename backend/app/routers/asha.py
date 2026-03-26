@@ -13,6 +13,17 @@ class PatientCreateRequest(BaseModel):
     age: int = Field(ge=10, le=60)
     weeks_pregnant: int = Field(ge=1, le=45)
     village: str = Field(min_length=1, max_length=120)
+    height_cm: float | None = Field(None, ge=120, le=220)
+    blood_group: str | None = None
+    lmp_date: str | None = None
+    edd_date: str | None = None
+    expected_del_wks: int | None = None
+    parity: int | None = None
+    gravida: int | None = None
+    diabetic_history: bool = False
+    veg_nonveg: str | None = None
+    has_addiction: bool = False
+    addiction_notes: str | None = None
 
 
 class PatientResponse(BaseModel):
@@ -27,10 +38,11 @@ class PatientResponse(BaseModel):
 
 
 class VitalsCreateRequest(BaseModel):
-    blood_pressure_sys: int = Field(ge=50, le=300)
-    blood_pressure_dia: int = Field(ge=30, le=200)
-    hemoglobin: float = Field(ge=0, le=30)
-    weight_kg: float = Field(ge=10, le=300)
+    blood_pressure_sys: int = Field(ge=70, le=240)
+    blood_pressure_dia: int = Field(ge=40, le=140)
+    hemoglobin: float = Field(ge=3, le=25)
+    weight_kg: float = Field(ge=25, le=250)
+    pulse_rate: int | None = Field(None, ge=40, le=200)
     symptoms: str | None = Field(default=None, max_length=2000)
 
 
@@ -41,6 +53,7 @@ class VitalsResponse(BaseModel):
     blood_pressure_dia: int
     hemoglobin: float
     weight_kg: float
+    pulse_rate: int | None = None
     symptoms: str | None = None
     recorded_at: str | None = None
 
@@ -48,10 +61,10 @@ class VitalsResponse(BaseModel):
 class PredictRiskRequest(BaseModel):
     patient_id: str = Field(min_length=1)
     vitals_id: str | None = None
-    blood_pressure_sys: int = Field(ge=50, le=300)
-    blood_pressure_dia: int = Field(ge=30, le=200)
-    hemoglobin: float = Field(ge=0, le=30)
-    weight_kg: float = Field(ge=10, le=300)
+    blood_pressure_sys: int = Field(ge=70, le=240)
+    blood_pressure_dia: int = Field(ge=40, le=140)
+    hemoglobin: float = Field(ge=3, le=25)
+    weight_kg: float = Field(ge=25, le=250)
     weeks_pregnant: int = Field(ge=1, le=45)
     age: int = Field(ge=10, le=60)
 
@@ -91,16 +104,27 @@ def _get_risk_predictor(request: Request) -> RiskPredictor:
 @asha_router.post("/patients", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
 def create_patient(
     payload: PatientCreateRequest,
-    current_user: CurrentUser = Depends(require_role("asha")),
+    # current_user: CurrentUser = Depends(require_role("asha")),  # Auth disabled
     supabase: Client = Depends(get_supabase),
 ) -> PatientResponse:
     insert_payload = {
-        "asha_id": current_user.id,
+        "asha_id": "mock_asha_id",  # Mock since auth disabled
         "mother_id": payload.mother_id,
         "name": payload.name,
         "age": payload.age,
         "weeks_pregnant": payload.weeks_pregnant,
         "village": payload.village,
+        "height_cm": payload.height_cm,
+        "blood_group": payload.blood_group,
+        "lmp_date": payload.lmp_date,
+        "edd_date": payload.edd_date,
+        "expected_del_wks": payload.expected_del_wks,
+        "parity": payload.parity,
+        "gravida": payload.gravida,
+        "diabetic_history": payload.diabetic_history,
+        "veg_nonveg": payload.veg_nonveg,
+        "has_addiction": payload.has_addiction,
+        "addiction_notes": payload.addiction_notes,
     }
 
     response = (
@@ -139,31 +163,17 @@ def list_asha_patients(
 def submit_vitals(
     payload: VitalsCreateRequest,
     patient_id: str = Path(min_length=1),
-    current_user: CurrentUser = Depends(require_role("asha")),
+    # current_user: CurrentUser = Depends(require_role("asha")),  # Auth disabled
     supabase: Client = Depends(get_supabase),
 ) -> VitalsResponse:
-    patient_response = (
-        supabase.table("patients")
-        .select("id, asha_id")
-        .eq("id", patient_id)
-        .eq("asha_id", current_user.id)
-        .limit(1)
-        .execute()
-    )
-    owned_patient = _single_row(patient_response.data)
-
-    if not owned_patient:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="The provided patient_id does not belong to the current ASHA.",
-        )
-
+    # Ownership check skipped (auth disabled)
     insert_payload = {
         "patient_id": patient_id,
         "blood_pressure_sys": payload.blood_pressure_sys,
         "blood_pressure_dia": payload.blood_pressure_dia,
         "hemoglobin": payload.hemoglobin,
         "weight_kg": payload.weight_kg,
+        "pulse_rate": payload.pulse_rate,
         "symptoms": payload.symptoms,
     }
 

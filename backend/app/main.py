@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import Client
 
-from .auth import CurrentUser, get_current_user
+from .auth import CurrentUser
 from .db import get_supabase
 from .ml import RiskPredictor
 from .routers.asha import asha_router
@@ -17,8 +17,8 @@ class UserProfile(BaseModel):
     id: str
     role: str
     name: str | None = None
+    email: str | None = None
     phone: str | None = None
-    language: str | None = None
 
 
 @asynccontextmanager
@@ -46,31 +46,12 @@ app.add_middleware(
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@auth_router.get("/me", response_model=UserProfile)
-def auth_me(
-    current_user: CurrentUser = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase),
-) -> UserProfile:
-    response = (
-        supabase.table("users")
-        .select("id, role, name, phone, language")
-        .eq("id", current_user.id)
-        .limit(1)
-        .execute()
-    )
-    rows = response.data if isinstance(response.data, list) else [response.data]
-    profile = rows[0] if rows and rows[0] else None
+# Removed auth completely (user wants no auth)
 
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found.",
-        )
+# @auth_router.get("/me", response_model=UserProfile)
+# def auth_me( ... ) - REMOVED
 
-    return UserProfile(**profile)
-
-
-app.include_router(auth_router)
+# app.include_router(auth_router)  # Auth completely removed
 app.include_router(asha_router)
 app.include_router(doctor_router)
 app.include_router(mother_router)

@@ -105,7 +105,7 @@ def _ensure_doctor_referral(supabase: Client, referral_id: str, doctor_id: str) 
 
 @doctor_router.get("/referrals", response_model=list[ReferralListItem])
 def list_doctor_referrals(
-    current_user: CurrentUser = Depends(require_role("doctor")),
+# current_user: CurrentUser = Depends(require_role("doctor")),  # Auth disabled
     supabase: Client = Depends(get_supabase),
 ) -> list[ReferralListItem]:
     response = (
@@ -228,6 +228,8 @@ def update_referral_status(
 
     if payload.status == "resolved":
         update_payload["resolved_at"] = datetime.now(timezone.utc).isoformat()
+    else:
+        update_payload["resolved_at"] = None
 
     response = (
         supabase.table("referrals")

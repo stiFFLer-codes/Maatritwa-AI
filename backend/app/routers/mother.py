@@ -70,7 +70,7 @@ def _get_mother_patient(supabase: Client, mother_id: str) -> dict:
 
 @mother_router.get("/profile", response_model=MotherPatientProfile)
 def get_mother_profile(
-    current_user: CurrentUser = Depends(require_role("mother")),
+# current_user: CurrentUser = Depends(require_role("mother")),  # Auth disabled
     supabase: Client = Depends(get_supabase),
 ) -> MotherPatientProfile:
     patient_row = _get_mother_patient(supabase, current_user.id)

@@ -90,42 +90,12 @@ function ProtectedRoute({ element, requiredRole }) {
 }
 
 function AppRoutes() {
-  const { loading } = useAuth()
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>
-  }
-
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<PublicRoute element={<Login />} />} />
-      <Route path="/signup" element={<PublicRoute element={<Signup />} />} />
-
-      {/* Default route - role/onboarding aware */}
-      <Route path="/" element={<AuthRedirect />} />
-
-      {/* Landing page */}
-      <Route path="/landing" element={<PublicRoute element={<Landing />} />} />
-
-      {/* Onboarding - for users without a role */}
-      <Route path="/onboarding" element={<OnboardingRoute element={<Onboarding />} />} />
-
-      {/* Protected role-based routes */}
-      <Route
-        path="/asha"
-        element={<ProtectedRoute element={<AshaDashboard />} requiredRole="asha" />}
-      />
-      <Route
-        path="/mother"
-        element={<ProtectedRoute element={<MotherDashboard />} requiredRole="mother" />}
-      />
-      <Route
-        path="/doctor"
-        element={<ProtectedRoute element={<DoctorDashboard />} requiredRole="doctor" />}
-      />
-
-      {/* Catch all - redirect to home */}
+      <Route path="/" element={<AshaDashboard />} />
+      <Route path="/asha" element={<AshaDashboard />} />
+      <Route path="/doctor" element={<DoctorDashboard />} />
+      <Route path="/mother" element={<MotherDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

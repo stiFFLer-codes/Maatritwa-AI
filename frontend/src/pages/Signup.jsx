@@ -112,8 +112,8 @@ const RoleCard = ({ icon: Icon, title, description, selected, onClick }) => (
 export default function Signup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
-  const { language } = useLanguage();
-  const t = translations[language] || translations.en;
+  const { lang } = useLanguage();
+  const t = translations[lang] || translations.en;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -185,8 +185,10 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-pink-50 p-4">
-      <LanguageToggle />
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 p-4">
+      <div className="fixed right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <LanguageToggle />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
