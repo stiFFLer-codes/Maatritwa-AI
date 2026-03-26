@@ -8,7 +8,6 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
-import { mockPatients } from '../../data/mockPatients';
 import { predictWithModel } from '../../data/decisionTreeRules';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
@@ -306,12 +305,9 @@ function AlertCard({ patient, lang }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function AshaDashboard() {
   const { t, lang } = useLanguage();
-  const [patients, setPatients] = useState(() =>
-    [...mockPatients].sort((a, b) => {
-      const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-      return o[a.riskLevel] - o[b.riskLevel];
-    })
-  );
+  const [patients, setPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [patientsError, setPatientsError] = useState('');
   const [showForm, setShowForm]       = useState(false);
   const [form, setForm]               = useState(EMPTY_FORM);
   const [riskResult, setRiskResult]   = useState(null);
@@ -320,6 +316,27 @@ export default function AshaDashboard() {
   const [submitError, setSubmitError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
+
+  // Fetch patients from backend API
+  useEffect(() => {
+    setLoadingPatients(true);
+    fetch('http://127.0.0.1:8000/asha/patients')
+      .then(res => res.json())
+      .then(data => {
+        const sorted = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
+          const o = { critical: 0, high: 1, moderate: 2, low: 3 };
+          return o[a.riskLevel] - o[b.riskLevel];
+        });
+        setPatients(sorted);
+        setPatientsError('');
+      })
+      .catch(err => {
+        console.error('Error fetching patients:', err);
+        setPatientsError('Failed to load patients. Please try again.');
+        setPatients([]);
+      })
+      .finally(() => setLoadingPatients(false));
+  }, []);
 
   useEffect(() => {
     setVoiceAvailable(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
