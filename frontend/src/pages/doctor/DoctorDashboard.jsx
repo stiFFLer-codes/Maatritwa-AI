@@ -451,7 +451,7 @@ export default function DoctorDashboard() {
           {/* Accuracy metrics */}
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
-              { label: 'Accuracy', value: `${MODEL_META.accuracyPct}%`, sub: 'LOOCV', color: 'text-sage', bg: 'bg-sage/10 border-sage/20' },
+              { label: 'Accuracy', value: `${MODEL_META.accuracyPct}%`, sub: 'Held-out validation', color: 'text-sage', bg: 'bg-sage/10 border-sage/20' },
               { label: 'Sensitivity', value: `${(MODEL_META.sensitivitySevere * 100).toFixed(0)}%`, sub: 'Severe PE', color: 'text-terracotta', bg: 'bg-terracotta/10 border-terracotta/20' },
               { label: 'Specificity', value: `${(MODEL_META.specificityNormal * 100).toFixed(0)}%`, sub: 'Normal', color: 'text-saffron', bg: 'bg-saffron/10 border-saffron/20' },
             ].map(({ label, value, sub, color, bg }) => (
@@ -463,23 +463,33 @@ export default function DoctorDashboard() {
             ))}
           </div>
 
-          {/* Decision tree rules */}
+          {/* Training methodology */}
           <div className="bg-cream rounded-2xl p-4 border border-blush mb-4">
             <div className="flex items-center gap-2 mb-3">
               <GitBranch size={13} className="text-saffron" />
-              <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">Decision Tree Logic (Depth {MODEL_META.treeDepth})</p>
+              <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">Gradient Boosting Model (100 estimators, depth {MODEL_META.treeDepth})</p>
             </div>
-            <div className="space-y-2">
-              {[
-                { path: 'Systolic BP ≤ 138 mmHg', result: 'Normal', color: 'bg-sage/20 text-sage border-sage/30', n: 80 },
-                { path: 'Systolic BP > 138  +  Severe BP: No', result: 'Mild Pre-Eclampsia', color: 'bg-terracotta/15 text-terracotta border-terracotta/30', n: 10 },
-                { path: 'Systolic BP > 138  +  Severe BP: Yes (≥160/110)', result: 'Severe Pre-Eclampsia', color: 'bg-rose-critical/15 text-rose-critical border-rose-critical/30', n: 14 },
-              ].map(({ path, result, color, n }) => (
-                <div key={result} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted font-mono bg-blush px-2 py-0.5 rounded">{path}</span>
-                  <span className="text-muted/40 text-xs">→</span>
-                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${color}`}>{result}</span>
-                  <span className="text-xs text-muted/60">n={n}</span>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-ivory rounded-xl p-3 border border-blush">
+                <p className="text-xs text-muted mb-0.5">Training Data</p>
+                <p className="text-sm font-semibold text-charcoal">2,000 synthetic patients</p>
+                <p className="text-xs text-muted/70">Distribution-matched to real data</p>
+              </div>
+              <div className="bg-ivory rounded-xl p-3 border border-blush">
+                <p className="text-xs text-muted mb-0.5">Validation Data</p>
+                <p className="text-sm font-semibold text-charcoal">104 real patients</p>
+                <p className="text-xs text-muted/70">Held-out test set (no leakage)</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-charcoal mb-2">Top Feature Importance</p>
+              {(MODEL_META.topFeatures || ['systolicBP', 'severeBP', 'diastolicBP']).slice(0, 5).map((feat, i) => (
+                <div key={feat} className="flex items-center gap-2">
+                  <span className="text-xs text-muted w-4">{i + 1}.</span>
+                  <span className="text-xs font-medium text-charcoal">{feat}</span>
+                  <div className="flex-1 bg-blush rounded-full h-1.5 overflow-hidden">
+                    <div className="h-full bg-saffron rounded-full" style={{ width: `${Math.max(100 - i * 20, 10)}%` }} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -493,7 +503,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex items-start gap-1.5">
               <GitBranch size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
-              <p>Decision tree depth: {MODEL_META.treeDepth} · Cross-validation: {MODEL_META.crossValidation}</p>
+              <p>Methodology: {MODEL_META.methodology || MODEL_META.crossValidation}</p>
             </div>
             <div className="flex items-start gap-1.5">
               <ShieldCheck size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />

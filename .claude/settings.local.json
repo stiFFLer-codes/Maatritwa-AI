@@ -3,7 +3,12 @@
     "allow": [
       "Bash(pip show:*)",
       "Bash(pip install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx vite:*)",
+      "Bash(find /d/Maatritwa-AI/Maatritwa-AI/src -name *.jsx -o -name *.js)",
+      "Bash(grep -r \"predictWithTree\\\\|decisionTreeRules\\\\|MODEL_META\" /d/Maatritwa-AI/Maatritwa-AI/src --include=*.js --include=*.jsx)",
+      "Bash(python scripts/generate_synthetic_data.py)",
+      "Bash(python scripts/train_xgboost.py)"
     ]
   },
   "enabledPlugins": {
