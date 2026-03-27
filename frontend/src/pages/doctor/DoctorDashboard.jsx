@@ -2,13 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Stethoscope, Calendar, X,
-  ChevronRight, Activity, Baby, User, Clock, TrendingUp,
-  ShieldCheck, FlaskConical, GitBranch,
+  ChevronRight, Activity, TrendingUp, ShieldCheck,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
-import { MODEL_META } from '../../data/decisionTreeRules';
 
 // ── Risk engine (same logic as ASHA dashboard) ──────────────────────────────
 function calculateRisk(p) {
@@ -213,29 +211,87 @@ function PatientDetailPanel({ patient, onClose, lang }) {
           </p>
         </div>
 
-        {/* Vitals summary */}
-        <div>
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Current Vitals</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: 'Systolic',   value: `${patient.systolicBP} mmHg` },
-              { label: 'Diastolic',  value: `${patient.diastolicBP} mmHg` },
-              { label: 'Hb',         value: patient.hemoglobin ? `${patient.hemoglobin} g/dL` : '—' },
-              { label: 'Weight',     value: `${patient.weight} kg` },
-              { label: 'Height',     value: `${patient.height} cm` },
-              { label: 'BMI',        value: bmi },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-cream rounded-xl p-3 border border-blush text-center">
-                <p className="text-xs text-muted mb-0.5">{label}</p>
-                <p className="text-sm font-semibold text-charcoal">{value}</p>
+        {/* Two-column clinical overview */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Left — ASHA-Collected Data */}
+          <div className="bg-cream rounded-2xl p-4 border border-blush">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">ASHA Data</p>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Age</span>
+                <span className="text-xs font-semibold text-charcoal">{patient.age} yrs</span>
               </div>
-            ))}
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Week</span>
+                <span className="text-xs font-semibold text-charcoal">Wk {patient.gestationalWeeks}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Village</span>
+                <span className="text-xs font-semibold text-charcoal">{patient.village || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">BP</span>
+                <span className="text-xs font-mono font-bold text-charcoal">{patient.systolicBP}/{patient.diastolicBP}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Hb</span>
+                <span className="text-xs font-semibold text-charcoal">{patient.hemoglobin ? `${patient.hemoglobin} g/dL` : '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Gravida</span>
+                <span className="text-xs font-semibold text-charcoal">{patient.gravida || (patient.firstPregnancy ? 'G1' : '—')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted">Diabetes</span>
+                <span className="text-xs font-semibold text-charcoal">{patient.diabetes ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="pt-1">
+                <p className="text-xs text-muted mb-1.5">Symptoms</p>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { label: 'Headache', key: 'headache' },
+                    { label: 'Visual', key: 'visualDisturbance' },
+                    { label: 'Edema', key: 'edema' },
+                  ].map(({ label, key }) => (
+                    <span key={key} className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                      patient[key]
+                        ? 'bg-terracotta/10 text-terracotta border-terracotta/30'
+                        : 'bg-blush text-muted border-blush'
+                    }`}>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right — Lab Values */}
+          <div className="bg-cream rounded-2xl p-4 border border-blush">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Lab Values</p>
+            <div className="space-y-2">
+              {[
+                { label: 'SGOT', value: patient.sgot ? `${patient.sgot} U/L` : '—' },
+                { label: 'SGPT', value: patient.sgpt ? `${patient.sgpt} U/L` : '—' },
+                { label: 'Platelets', value: patient.platelets ? `${patient.platelets}k/µL` : '—' },
+                { label: 'Creatinine', value: patient.creatinine ? `${patient.creatinine} mg/dL` : '—' },
+                { label: 'Urine Protein', value: patient.urineProtein || '—' },
+                { label: 'Epigastric Pain', value: patient.epigastricPain ? 'Present' : patient.epigastricPain === false ? 'Absent' : '—' },
+                { label: 'Seizures', value: patient.seizures ? 'Present' : patient.seizures === false ? 'Absent' : '—' },
+                { label: 'BMI', value: bmi },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-xs text-muted">{label}</span>
+                  <span className={`text-xs font-semibold ${value === '—' ? 'text-muted/50' : 'text-charcoal'}`}>{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* AI Risk Factors */}
+        {/* Risk Factors */}
         <div>
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">AI Risk Factors (SHAP-style)</p>
+          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Risk Factors</p>
           <div className="space-y-2">
             {result.reasons.map((r, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
@@ -304,6 +360,7 @@ export default function DoctorDashboard() {
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [patientsError, setPatientsError] = useState('');
+  const [showModelInfo, setShowModelInfo] = useState(false);
 
   // Fetch patients from backend API
   useEffect(() => {
@@ -334,8 +391,7 @@ export default function DoctorDashboard() {
     consults: 3, // mock
   }), [sorted]);
 
-  const criticalPatients  = sorted.filter(p => p.riskLevel === 'critical');
-  const highPatients      = sorted.filter(p => p.riskLevel === 'high');
+  const alertPatients = sorted.filter(p => p.riskLevel === 'critical' || p.riskLevel === 'high');
 
   return (
     <div className="min-h-screen bg-cream">
@@ -388,45 +444,56 @@ export default function DoctorDashboard() {
           ))}
         </div>
 
-        {/* Critical Alerts */}
-        {criticalPatients.length > 0 && (
+        {/* Urgent Cases: Critical + High Risk */}
+        {alertPatients.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={15} className="text-rose-critical" />
-              <h2 className="font-serif text-xl text-charcoal">{t('criticalPanel')}</h2>
+              <h2 className="font-serif text-xl text-charcoal">
+                {lang === 'hi' ? 'तत्काल ध्यान दें' : 'Urgent Cases'}
+              </h2>
               <span className="ml-auto bg-rose-critical/10 text-rose-critical text-xs font-bold px-2.5 py-0.5 rounded-full animate-pulse-border border border-rose-critical/20">
-                {criticalPatients.length}
+                {alertPatients.length}
               </span>
             </div>
             <div className="space-y-3">
-              {criticalPatients.map(p => {
+              {alertPatients.slice(0, 4).map(p => {
                 const r = calculateRisk(p);
+                const isCritical = p.riskLevel === 'critical';
                 return (
                   <motion.div key={p.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="bg-ivory rounded-2xl border-2 border-rose-critical/40 animate-pulse-border shadow-warm p-5"
+                    className={`bg-ivory rounded-2xl border-2 shadow-warm p-5 ${
+                      isCritical
+                        ? 'border-rose-critical/40 animate-pulse-border'
+                        : 'border-terracotta/30'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="w-2.5 h-2.5 rounded-full bg-rose-critical animate-pulse-dot" />
+                          <span className={`w-2.5 h-2.5 rounded-full ${isCritical ? 'bg-rose-critical animate-pulse-dot' : 'bg-terracotta'}`} />
                           <h3 className="font-serif text-lg text-charcoal">{p.name}</h3>
                         </div>
                         <p className="text-xs text-muted">{p.age} yrs · Wk {p.gestationalWeeks} · BP {p.systolicBP}/{p.diastolicBP}</p>
                       </div>
-                      <RiskBadge level="critical" size="md" />
+                      <RiskBadge level={p.riskLevel} size="md" />
                     </div>
                     <div className="space-y-1.5 mb-3">
                       {r.reasons.slice(0, 2).map((reason, i) => (
                         <div key={i} className="text-xs text-muted flex gap-2">
-                          <span className="text-rose-critical mt-0.5">▸</span>
+                          <span className={`mt-0.5 ${isCritical ? 'text-rose-critical' : 'text-terracotta'}`}>▸</span>
                           <span>{lang === 'hi' ? reason.hi : reason.en}</span>
                         </div>
                       ))}
                     </div>
-                    <div className="bg-rose-critical/5 rounded-xl px-4 py-2.5 border border-rose-critical/20 mb-3">
-                      <p className="text-sm font-semibold text-rose-critical">
+                    <div className={`rounded-xl px-4 py-2.5 border mb-3 ${
+                      isCritical
+                        ? 'bg-rose-critical/5 border-rose-critical/20'
+                        : 'bg-terracotta/5 border-terracotta/20'
+                    }`}>
+                      <p className={`text-sm font-semibold ${isCritical ? 'text-rose-critical' : 'text-terracotta'}`}>
                         {lang === 'hi' ? r.action.hi : r.action.en}
                       </p>
                     </div>
@@ -439,145 +506,144 @@ export default function DoctorDashboard() {
                   </motion.div>
                 );
               })}
+              {alertPatients.length > 4 && (
+                <p className="text-xs text-center text-saffron font-semibold cursor-pointer hover:text-terracotta transition-colors py-1">
+                  {lang === 'hi'
+                    ? `सभी ${alertPatients.length} तत्काल मामले देखें`
+                    : `View all ${alertPatients.length} urgent cases`}
+                </p>
+              )}
             </div>
           </section>
         )}
 
-        {/* Risk Distribution */}
-        <section className="bg-ivory rounded-3xl p-6 shadow-soft border border-blush">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={15} className="text-saffron" />
-            <h2 className="font-serif text-xl text-charcoal">{t('riskDistribution')}</h2>
-          </div>
-          <RiskDistBar patients={sorted} />
-        </section>
-
-        {/* ── Model Validation ────────────────────────────────────────────────── */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-ivory rounded-3xl p-6 shadow-soft border border-blush"
-        >
-          <div className="flex items-center gap-2 mb-5">
-            <ShieldCheck size={15} className="text-sage" />
-            <h2 className="font-serif text-xl text-charcoal">Model Validation</h2>
-            <span className="ml-auto bg-sage/10 text-sage text-xs font-bold px-2.5 py-1 rounded-full border border-sage/20">
-              Clinically Validated
-            </span>
-          </div>
-
-          {/* Accuracy metrics */}
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            {[
-              { label: 'Accuracy', value: `${MODEL_META.accuracyPct}%`, sub: 'Held-out validation', color: 'text-sage', bg: 'bg-sage/10 border-sage/20' },
-              { label: 'Sensitivity', value: `${(MODEL_META.sensitivitySevere * 100).toFixed(0)}%`, sub: 'Severe PE', color: 'text-terracotta', bg: 'bg-terracotta/10 border-terracotta/20' },
-              { label: 'Specificity', value: `${(MODEL_META.specificityNormal * 100).toFixed(0)}%`, sub: 'Normal', color: 'text-saffron', bg: 'bg-saffron/10 border-saffron/20' },
-            ].map(({ label, value, sub, color, bg }) => (
-              <div key={label} className={`rounded-2xl p-4 border ${bg} text-center`}>
-                <p className={`font-serif text-2xl font-bold ${color}`}>{value}</p>
-                <p className="text-xs font-semibold text-charcoal mt-0.5">{label}</p>
-                <p className="text-xs text-muted">{sub}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Training methodology */}
-          <div className="bg-cream rounded-2xl p-4 border border-blush mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <GitBranch size={13} className="text-saffron" />
-              <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">Gradient Boosting Model (100 estimators, depth {MODEL_META.treeDepth})</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="bg-ivory rounded-xl p-3 border border-blush">
-                <p className="text-xs text-muted mb-0.5">Training Data</p>
-                <p className="text-sm font-semibold text-charcoal">2,000 synthetic patients</p>
-                <p className="text-xs text-muted/70">Distribution-matched to real data</p>
-              </div>
-              <div className="bg-ivory rounded-xl p-3 border border-blush">
-                <p className="text-xs text-muted mb-0.5">Validation Data</p>
-                <p className="text-sm font-semibold text-charcoal">104 real patients</p>
-                <p className="text-xs text-muted/70">Held-out test set (no leakage)</p>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-charcoal mb-2">Top Feature Importance</p>
-              {(MODEL_META.topFeatures || ['systolicBP', 'severeBP', 'diastolicBP']).slice(0, 5).map((feat, i) => (
-                <div key={feat} className="flex items-center gap-2">
-                  <span className="text-xs text-muted w-4">{i + 1}.</span>
-                  <span className="text-xs font-medium text-charcoal">{feat}</span>
-                  <div className="flex-1 bg-blush rounded-full h-1.5 overflow-hidden">
-                    <div className="h-full bg-saffron rounded-full" style={{ width: `${Math.max(100 - i * 20, 10)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="space-y-1.5 text-xs text-muted">
-            <div className="flex items-start gap-1.5">
-              <FlaskConical size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
-              <p>{MODEL_META.hospitalNote}</p>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <GitBranch size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
-              <p>Methodology: {MODEL_META.methodology || MODEL_META.crossValidation}</p>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <ShieldCheck size={11} className="text-muted/60 mt-0.5 flex-shrink-0" />
-              <p>Based on WHO 2019 &amp; FOGSI clinical guidelines</p>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Recent Assessments Table */}
+        {/* All Patients Table */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Stethoscope size={15} className="text-saffron" />
-            <h2 className="font-serif text-xl text-charcoal">{t('recentAssessments')}</h2>
+            <h2 className="font-serif text-xl text-charcoal">
+              {lang === 'hi' ? 'सभी मरीज़' : 'All Patients'}
+            </h2>
+            <span className="ml-2 bg-saffron/10 text-saffron text-xs font-bold px-2 py-0.5 rounded-full border border-saffron/20">
+              {sorted.length}
+            </span>
           </div>
           <div className="bg-ivory rounded-2xl border border-blush overflow-hidden shadow-soft">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[540px]">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-blush bg-cream">
-                    {['patient','age','week','bp','risk','date','action'].map(col => (
+                    {['patient','age','week','bp','risk','bpTrend','date','action'].map(col => (
                       <th key={col} className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wider">
-                        {t(`tableHeaders.${col}`)}
+                        {col === 'bpTrend'
+                          ? (lang === 'hi' ? 'BP ट्रेंड' : 'BP Trend')
+                          : t(`tableHeaders.${col}`)}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((p, i) => (
-                    <motion.tr
-                      key={p.id}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      onClick={() => setSelectedPatient(p)}
-                      className={`border-b border-blush/60 cursor-pointer hover:bg-blush/30 transition-colors ${i % 2 === 0 ? '' : 'bg-cream/50'}`}
-                    >
-                      <td className="px-4 py-3">
-                        <span className="font-serif text-sm text-charcoal font-semibold">{p.name}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted">{p.age}</td>
-                      <td className="px-4 py-3 text-sm text-muted">{p.gestationalWeeks}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-charcoal">{p.systolicBP}/{p.diastolicBP}</td>
-                      <td className="px-4 py-3"><RiskBadge level={p.riskLevel} /></td>
-                      <td className="px-4 py-3 text-xs text-muted">{fmt(p.lastVisitDate)}</td>
-                      <td className="px-4 py-3">
-                        <button className="text-xs text-saffron font-semibold hover:text-terracotta transition-colors flex items-center gap-1">
-                          {t('viewReport')} <ChevronRight size={10} />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
+                  {sorted.map((p, i) => {
+                    const visits = p.visits || [];
+                    const latestSys = visits.length > 0 ? visits[visits.length - 1].systolicBP : null;
+                    const prevSys = visits.length > 1 ? visits[visits.length - 2].systolicBP : null;
+                    const trendDir = latestSys && prevSys
+                      ? latestSys - prevSys > 5 ? 'up'
+                        : prevSys - latestSys > 5 ? 'down'
+                        : 'stable'
+                      : 'none';
+                    return (
+                      <motion.tr
+                        key={p.id}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        onClick={() => setSelectedPatient(p)}
+                        className={`border-b border-blush/60 cursor-pointer hover:bg-blush/30 transition-colors ${i % 2 === 0 ? '' : 'bg-cream/50'}`}
+                      >
+                        <td className="px-4 py-3">
+                          <span className="font-serif text-sm text-charcoal font-semibold">{p.name}</span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted">{p.age}</td>
+                        <td className="px-4 py-3 text-sm text-muted">{p.gestationalWeeks}</td>
+                        <td className="px-4 py-3 text-sm font-mono text-charcoal">{p.systolicBP}/{p.diastolicBP}</td>
+                        <td className="px-4 py-3"><RiskBadge level={p.riskLevel} /></td>
+                        <td className="px-4 py-3">
+                          {visits.length > 1 ? (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-20 h-7">
+                                <BPTrend visits={visits.slice(-4)} />
+                              </div>
+                              <span className={`text-xs font-bold ${
+                                trendDir === 'up'   ? 'text-rose-critical' :
+                                trendDir === 'down' ? 'text-sage' : 'text-muted'
+                              }`}>
+                                {trendDir === 'up' ? '⬆' : trendDir === 'down' ? '⬇' : '—'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted">{fmt(p.lastVisitDate)}</td>
+                        <td className="px-4 py-3">
+                          <button className="text-xs text-saffron font-semibold hover:text-terracotta transition-colors flex items-center gap-1">
+                            {t('viewReport')} <ChevronRight size={10} />
+                          </button>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
+        </section>
+
+        {/* AI Trust Badge — collapsed by default */}
+        <section className="bg-ivory rounded-2xl border border-blush overflow-hidden shadow-soft">
+          <button
+            onClick={() => setShowModelInfo(!showModelInfo)}
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-cream/50 transition-colors"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <ShieldCheck size={14} className="text-sage" />
+              <span className="text-sm text-charcoal">
+                AI Model: <span className="font-semibold text-sage">98.1%</span> validated on 104 real patients
+              </span>
+              <span className="text-xs text-muted mx-1">·</span>
+              <span className="text-xs text-muted">WHO/FOGSI aligned</span>
+              <span className="text-xs text-muted mx-1">·</span>
+              <span className="text-xs text-muted">Severe PE recall: 100%</span>
+            </div>
+            <ChevronRight size={14} className={`text-muted transition-transform shrink-0 ml-2 ${showModelInfo ? 'rotate-90' : ''}`} />
+          </button>
+
+          <AnimatePresence>
+            {showModelInfo && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="border-t border-blush px-5 py-4"
+              >
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-cream rounded-xl p-3 border border-blush">
+                    <p className="text-xs text-muted">Training</p>
+                    <p className="text-sm font-semibold text-charcoal">2,006 synthetic patients</p>
+                  </div>
+                  <div className="bg-cream rounded-xl p-3 border border-blush">
+                    <p className="text-xs text-muted">Validation</p>
+                    <p className="text-sm font-semibold text-charcoal">104 real hospital patients</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted">
+                  Gradient Boosting · 11 ASHA-collectible features · Zero data leakage · Top predictors: diastolic BP, systolic BP, visual disturbance
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
         <div className="h-8" />
