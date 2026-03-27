@@ -257,10 +257,17 @@ def predict_risk(
 
     risk_level, risk_score, flags = predictor.predict(feature_values)
 
+    RISK_MAP = {
+        "low": "safe",
+        "medium": "monitor",
+        "high": "critical"
+    }
+    mapped_risk_level = RISK_MAP.get(risk_level.lower(), "insufficient_data")
+
     insert_payload = {
         "patient_id": payload.patient_id,
         "vitals_id": payload.vitals_id,
-        "risk_level": risk_level,
+        "risk_level": mapped_risk_level,
         "risk_score": float(risk_score),
         "flags": flags,
         "model_version": predictor.model_version,
