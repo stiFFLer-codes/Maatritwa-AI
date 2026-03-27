@@ -170,6 +170,22 @@ const EMPTY_FORM = {
   previousPreeclampsia: false, firstPregnancy: false,
 };
 
+const EMPTY_VISIT_FORM = {
+  patientId: '',
+  visitDate: '',
+  gestationalWeeks: '',
+  systolicBP: '',
+  diastolicBP: '',
+  symptoms: [],
+};
+
+const SYMPTOM_OPTIONS = [
+  { value: 'Headache', labelKey: 'form.symptom_headache' },
+  { value: 'Blurred Vision', labelKey: 'form.symptom_blurred_vision' },
+  { value: 'Swelling', labelKey: 'form.symptom_swelling' },
+  { value: 'Seizures', labelKey: 'form.symptom_seizures' },
+];
+
 // ── NumberInput with ± buttons ────────────────────────────────────────────────
 function NumberInput({ label, hint, name, value, onChange, min = 0, max = 999, step = 1, required }) {
   const adjust = (delta) => {
@@ -316,8 +332,10 @@ export default function AshaDashboard() {
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [patientsError, setPatientsError] = useState('');
+  const [formMode, setFormMode] = useState('new-patient');
   const [showForm, setShowForm]       = useState(false);
   const [form, setForm]               = useState(EMPTY_FORM);
+  const [visitForm, setVisitForm]     = useState(EMPTY_VISIT_FORM);
   const [riskResult, setRiskResult]   = useState(null);
   const [submitted, setSubmitted]     = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -333,7 +351,7 @@ export default function AshaDashboard() {
       .then(data => {
         const sorted = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
           const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-          return o[a.riskLevel] - o[b.riskLevel];
+          return (o[a.riskLevel] ?? 99) - (o[b.riskLevel] ?? 99);
         });
         setPatients(sorted);
         setPatientsError('');
@@ -375,6 +393,131 @@ export default function AshaDashboard() {
       return;
     }
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleVisitChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'symptoms') {
+      setVisitForm(prev => ({
+        ...prev,
+        symptoms: prev.symptoms.includes(value)
+          ? prev.symptoms.filter(s => s !== value)
+          : [...prev.symptoms, value],
+      }));
+      return;
+    }
+    setVisitForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleVisitSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    const parseApiError = async (response, fallbackMessage) => {
+      try {
+        const data = await response.json();
+        if (Array.isArray(data?.detail)) {
+          return data.detail
+            .map((item) => `${item?.loc?.join('.') || 'field'}: ${item?.msg || 'invalid value'}`)
+            .join('; ');
+        }
+        if (typeof data?.detail === 'string' && data.detail) {
+          return data.detail;
+        }
+      } catch {
+        // Ignore parse errors and use fallback message.
+      }
+      return `${fallbackMessage} (HTTP ${response.status})`;
+    };
+
+    const toNumber = (value) => {
+      if (typeof value !== 'string') return Number.NaN;
+      const trimmed = value.trim();
+      if (!trimmed) return Number.NaN;
+      return Number(trimmed);
+    };
+
+    const selectedPatient = patients.find((p) => p.id === visitForm.patientId);
+    if (!selectedPatient) {
+      setSubmitError('Please select an existing patient.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!visitForm.visitDate) {
+      setSubmitError('Visit date is required.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const gestationalWeeks = toNumber(visitForm.gestationalWeeks);
+    const systolicBP = toNumber(visitForm.systolicBP);
+    const diastolicBP = toNumber(visitForm.diastolicBP);
+
+    if (!Number.isFinite(gestationalWeeks) || gestationalWeeks < 1 || gestationalWeeks > 45) {
+      setSubmitError('Gestational weeks must be between 1 and 45.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!Number.isFinite(systolicBP) || systolicBP < 70 || systolicBP > 240) {
+      setSubmitError('Systolic BP must be between 70 and 240.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!Number.isFinite(diastolicBP) || diastolicBP < 40 || diastolicBP > 140) {
+      setSubmitError('Diastolic BP must be between 40 and 140.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const symptomsString = visitForm.symptoms.length > 0 ? visitForm.symptoms.join(', ') : null;
+
+    try {
+      const visitResp = await fetch(`${API_BASE_URL}/asha/patients/${visitForm.patientId}/visits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recorded_at: `${visitForm.visitDate}T09:00:00`,
+          weeks_pregnant: gestationalWeeks,
+          blood_pressure_sys: systolicBP,
+          blood_pressure_dia: diastolicBP,
+          symptoms: symptomsString,
+        }),
+      });
+
+      if (!visitResp.ok) {
+        throw new Error(await parseApiError(visitResp, 'Failed to save visit record.'));
+      }
+
+      const createdVisit = await visitResp.json();
+      const updatedPatient = {
+        ...selectedPatient,
+        gestationalWeeks,
+        systolicBP,
+        diastolicBP,
+        symptoms: visitForm.symptoms,
+        lastVisitDate: createdVisit.recorded_at || `${visitForm.visitDate}T09:00:00`,
+      };
+      const result = calculateRisk(updatedPatient);
+      setRiskResult({ patient: updatedPatient, ...result, treeResult: null, decisionPath: [], similarCount: 0 });
+
+      setPatients(prev => {
+        const o = { critical: 0, high: 1, moderate: 2, low: 3 };
+        const nextPatients = prev.map((p) => {
+          if (p.id !== visitForm.patientId) return p;
+          return { ...updatedPatient, riskLevel: result.level };
+        });
+        return nextPatients.sort((a, b) => (o[a.riskLevel] ?? 99) - (o[b.riskLevel] ?? 99));
+      });
+
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err?.message || 'Failed to submit visit data.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -587,7 +730,9 @@ export default function AshaDashboard() {
 
   const closeForm = () => {
     setShowForm(false);
+    setFormMode('new-patient');
     setForm(EMPTY_FORM);
+    setVisitForm(EMPTY_VISIT_FORM);
     setRiskResult(null);
     setSubmitted(false);
     setSubmitError('');
@@ -686,7 +831,15 @@ export default function AshaDashboard() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => { setShowForm(true); setSubmitted(false); setRiskResult(null); setForm(EMPTY_FORM); }}
+          onClick={() => {
+            setShowForm(true);
+            setFormMode('new-patient');
+            setSubmitted(false);
+            setRiskResult(null);
+            setSubmitError('');
+            setForm(EMPTY_FORM);
+            setVisitForm(EMPTY_VISIT_FORM);
+          }}
           className="w-full min-h-[52px] flex items-center justify-center gap-2.5 bg-saffron hover:bg-terracotta text-white font-semibold text-base rounded-2xl shadow-warm hover:shadow-warm-lg transition-all duration-200"
         >
           <Plus size={20} />
@@ -710,39 +863,83 @@ export default function AshaDashboard() {
                 <div className="flex items-center justify-between px-6 py-4 bg-blush/40 border-b border-blush">
                   <div className="flex items-center gap-2">
                     <HeartPulse size={17} className="text-terracotta" />
-                    <h2 className="font-serif text-lg text-charcoal">{t('form.title')}</h2>
+                    <h2 className="font-serif text-lg text-charcoal">
+                      {formMode === 'new-patient' ? t('form.title') : t('form.titleExistingVisit')}
+                    </h2>
                   </div>
                   <button onClick={closeForm} className="text-muted hover:text-rose-critical transition-colors p-1">
                     <X size={20} />
                   </button>
                 </div>
 
+                {/* Form mode switch */}
+                {!submitted && (
+                  <div className="px-6 pt-4">
+                    <div className="grid grid-cols-2 gap-2 bg-cream rounded-xl p-1 border border-blush">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormMode('new-patient');
+                          setSubmitError('');
+                        }}
+                        className={`h-10 rounded-lg text-sm font-semibold transition-colors ${
+                          formMode === 'new-patient'
+                            ? 'bg-saffron text-white'
+                            : 'text-charcoal hover:bg-blush/70'
+                        }`}
+                      >
+                        {t('form.modeNewPatient')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormMode('existing-visit');
+                          setSubmitError('');
+                        }}
+                        className={`h-10 rounded-lg text-sm font-semibold transition-colors ${
+                          formMode === 'existing-visit'
+                            ? 'bg-saffron text-white'
+                            : 'text-charcoal hover:bg-blush/70'
+                        }`}
+                      >
+                        {t('form.modeExistingVisit')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Form content ── */}
                 {!submitted ? (
-                  <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                  <form
+                    onSubmit={formMode === 'new-patient' ? handleSubmit : handleVisitSubmit}
+                    className="p-6 space-y-6"
+                  >
 
-                    {/* Voice microphone */}
-                    {voiceAvailable && (
-                      <div className="flex flex-col items-center gap-2 py-2">
-                        <button
-                          type="button"
-                          onClick={startVoice}
-                          className={`w-16 h-16 rounded-full flex items-center justify-center shadow-warm transition-all duration-200 ${
-                            isListening
-                              ? 'bg-terracotta animate-mic-ring scale-110'
-                              : 'bg-saffron hover:bg-terracotta'
-                          }`}
-                        >
-                          {isListening ? <MicOff size={24} className="text-white" /> : <Mic size={24} className="text-white" />}
-                        </button>
-                        <p className="text-xs text-muted text-center">
-                          {isListening ? t('form.listening') : t('form.voiceHint')}
-                        </p>
-                      </div>
-                    )}
+                    {formMode === 'new-patient' ? (
+                      <>
 
-                    {/* Patient Info */}
-                    <div>
+                      {/* Voice microphone */}
+                      {voiceAvailable && (
+                        <div className="flex flex-col items-center gap-2 py-2">
+                          <button
+                            type="button"
+                            onClick={startVoice}
+                            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-warm transition-all duration-200 ${
+                              isListening
+                                ? 'bg-terracotta animate-mic-ring scale-110'
+                                : 'bg-saffron hover:bg-terracotta'
+                            }`}
+                          >
+                            {isListening ? <MicOff size={24} className="text-white" /> : <Mic size={24} className="text-white" />}
+                          </button>
+                          <p className="text-xs text-muted text-center">
+                            {isListening ? t('form.listening') : t('form.voiceHint')}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Patient Info */}
+                      <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.patientInfo')}</p>
                       <div className="space-y-3">
 
@@ -814,10 +1011,10 @@ export default function AshaDashboard() {
                         </div>
 
                       </div>
-                    </div>
+                      </div>
 
-                    {/* Vitals */}
-                    <div>
+                      {/* Vitals */}
+                      <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.vitals')}</p>
                       <div className="grid grid-cols-2 gap-3">
                         <NumberInput label={t('form.systolic')} hint={t('form.systolicHint')} name="systolicBP" value={form.systolicBP} onChange={handleChange} min={60} max={250} required />
@@ -843,12 +1040,7 @@ export default function AshaDashboard() {
                       <div className="mt-4">
                         <p className="text-xs font-medium text-muted mb-2">{t('form.symptoms')}</p>
                         <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { value: 'Headache',        label: t('form.symptom_headache') },
-                            { value: 'Blurred Vision',  label: t('form.symptom_blurred_vision') },
-                            { value: 'Swelling',        label: t('form.symptom_swelling') },
-                            { value: 'Seizures',        label: t('form.symptom_seizures') },
-                          ].map(({ value, label }) => (
+                          {SYMPTOM_OPTIONS.map(({ value, labelKey }) => (
                             <label
                               key={value}
                               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all duration-150 ${
@@ -872,21 +1064,127 @@ export default function AshaDashboard() {
                                   <CheckCircle2 size={12} className="text-white" />
                                 )}
                               </span>
-                              <span className="text-sm font-medium">{label}</span>
+                              <span className="text-sm font-medium">{t(labelKey)}</span>
                             </label>
                           ))}
                         </div>
                       </div>
-                    </div>
+                      </div>
 
-                    {/* History toggles (local risk engine factors only) */}
-                    <div>
+                      {/* History toggles (local risk engine factors only) */}
+                      <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">{t('form.history')}</p>
                       <div className="bg-cream rounded-2xl px-4 py-1 border border-blush">
                         <Toggle label={t('form.prevPreeclampsia')} name="previousPreeclampsia" checked={form.previousPreeclampsia} onChange={handleChange} />
                         <Toggle label={t('form.firstPregnancy')}   name="firstPregnancy"       checked={form.firstPregnancy}       onChange={handleChange} />
                       </div>
-                    </div>
+                      </div>
+
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.existingVisitSection')}</p>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-muted mb-1">{t('form.selectPatient')}</label>
+                              <select
+                                name="patientId"
+                                value={visitForm.patientId}
+                                onChange={handleVisitChange}
+                                required
+                                className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                              >
+                                <option value="">{t('form.selectPatientPlaceholder')}</option>
+                                {patients.map((patient) => (
+                                  <option key={patient.id} value={patient.id}>
+                                    {patient.name} ({patient.village || t('form.villageUnknown')})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-muted mb-1">{t('form.visitDate')}</label>
+                              <input
+                                type="date"
+                                name="visitDate"
+                                value={visitForm.visitDate}
+                                onChange={handleVisitChange}
+                                required
+                                className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberInput
+                                label={t('form.gestationWeek')}
+                                name="gestationalWeeks"
+                                value={visitForm.gestationalWeeks}
+                                onChange={handleVisitChange}
+                                min={1}
+                                max={45}
+                                required
+                              />
+                              <div />
+                              <NumberInput
+                                label="Systolic BP"
+                                hint="mmHg"
+                                name="systolicBP"
+                                value={visitForm.systolicBP}
+                                onChange={handleVisitChange}
+                                min={70}
+                                max={240}
+                                required
+                              />
+                              <NumberInput
+                                label="Diastolic BP"
+                                hint="mmHg"
+                                name="diastolicBP"
+                                value={visitForm.diastolicBP}
+                                onChange={handleVisitChange}
+                                min={40}
+                                max={140}
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-medium text-muted mb-2">Symptoms</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {SYMPTOM_OPTIONS.map(({ value, labelKey }) => (
+                                  <label
+                                    key={value}
+                                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all duration-150 ${
+                                      visitForm.symptoms.includes(value)
+                                        ? 'border-saffron bg-saffron/10 text-charcoal'
+                                        : 'border-blush bg-cream text-muted hover:border-saffron/50'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      name="symptoms"
+                                      value={value}
+                                      checked={visitForm.symptoms.includes(value)}
+                                      onChange={handleVisitChange}
+                                      className="sr-only"
+                                    />
+                                    <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
+                                      visitForm.symptoms.includes(value) ? 'bg-saffron' : 'bg-white border border-blush'
+                                    }`}>
+                                      {visitForm.symptoms.includes(value) && (
+                                        <CheckCircle2 size={12} className="text-white" />
+                                      )}
+                                    </span>
+                                    <span className="text-sm font-medium">{t(labelKey)}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Submit */}
                     <button
@@ -905,7 +1203,7 @@ export default function AshaDashboard() {
                       ) : (
                         <>
                           <Activity size={18} />
-                          {t('form.submit')}
+                          {formMode === 'new-patient' ? t('form.submit') : t('form.submitVisit')}
                         </>
                       )}
                     </button>
