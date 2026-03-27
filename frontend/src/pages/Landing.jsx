@@ -193,16 +193,19 @@ export default function Landing() {
     <div className="min-h-screen bg-cream overflow-x-hidden">
 
       {/* ── Nav ────────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-50 bg-ivory/90 backdrop-blur-sm border-b border-blush shadow-soft">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <span className="font-serif text-xl font-semibold text-charcoal">मातृत्व AI</span>
+      <nav className="fixed top-0 inset-x-0 z-50 bg-ivory/90 backdrop-blur-sm border-b border-blush shadow-soft transition-all duration-300">
+        <div className="max-w-6xl mx-auto px-6 h-[4.5rem] flex items-center justify-between">
+          <div className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity">
+            <img src="/bindu.svg" alt="Maatritwa AI Logo" className="h-10 w-auto object-contain" />
+            <span className="font-serif text-2xl font-semibold text-charcoal tracking-wide">मातृत्व AI</span>
+          </div>
           <LanguageToggle />
         </div>
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <section className="pt-14 min-h-screen flex items-center">
-        <div className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
+      <section className="pt-24 lg:pt-28 min-h-screen flex items-center">
+        <div className="max-w-6xl mx-auto px-6 py-12 lg:py-20 grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
 
           {/* Left: text */}
           <div>
@@ -239,7 +242,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.6 }}
-              className="text-base text-muted leading-relaxed mb-10 max-w-lg"
+              className="text-lg text-muted leading-relaxed mb-12 max-w-xl"
             >
               {t('heroDesc')}
             </motion.p>
@@ -292,16 +295,16 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-16"
+            className="text-center mb-20"
           >
-            <h2 className="font-serif text-4xl text-charcoal mb-3">
+            <h2 className="font-serif text-4xl lg:text-5xl text-charcoal mb-4">
               {t('chooseRole')}
             </h2>
-            <div className="w-12 h-0.5 bg-terracotta mx-auto rounded-full" />
+            <div className="w-16 h-1 bg-terracotta mx-auto rounded-full opacity-80" />
           </motion.div>
 
           {/* Cards */}
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-10">
             {ROLES.map(({ key, to, icon: Icon, color, iconBg, border, hover, cta }, i) => (
               <motion.div
                 key={key}
@@ -348,11 +351,12 @@ export default function Landing() {
       </section>
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="bg-ivory border-t border-blush py-10 px-6">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="font-serif text-xl text-charcoal mb-2">मातृत्व AI</p>
-          <p className="text-sm text-muted mb-1">{t('footerTag')}</p>
-          <p className="text-xs text-muted/70">{t('footerSub')}</p>
+      <footer className="bg-ivory border-t border-blush py-12 px-6">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center">
+          <img src="/bindu.svg" alt="Maatritwa AI Logo" className="h-12 w-auto object-contain mb-4 opacity-90" />
+          <p className="font-serif text-2xl text-charcoal mb-3 tracking-wide">मातृत्व AI</p>
+          <p className="text-sm text-muted mb-2 font-medium">{t('footerTag')}</p>
+          <p className="text-xs text-muted/60 max-w-sm leading-relaxed">{t('footerSub')}</p>
         </div>
       </footer>
     </div>

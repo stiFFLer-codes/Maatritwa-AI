@@ -164,6 +164,7 @@ const RISK_MESSAGES = {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MotherDashboard() {
   const { lang } = useLanguage();
+  const patient = DEFAULT_PATIENT;
 
   // Chat state
   const [messages, setMessages] = useState([
