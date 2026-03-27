@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field
 from supabase import Client
@@ -54,6 +56,24 @@ class VitalsResponse(BaseModel):
     hemoglobin: float
     weight_kg: float
     pulse_rate: int | None = None
+    symptoms: str | None = None
+    recorded_at: str | None = None
+
+
+class ExistingVisitCreateRequest(BaseModel):
+    recorded_at: datetime | None = None
+    weeks_pregnant: int = Field(ge=1, le=45)
+    blood_pressure_sys: int = Field(ge=70, le=240)
+    blood_pressure_dia: int = Field(ge=40, le=140)
+    symptoms: str | None = Field(default=None, max_length=2000)
+
+
+class ExistingVisitResponse(BaseModel):
+    id: str
+    patient_id: str
+    weeks_pregnant: int
+    blood_pressure_sys: int
+    blood_pressure_dia: int
     symptoms: str | None = None
     recorded_at: str | None = None
 
@@ -205,6 +225,77 @@ def submit_vitals(
         )
 
     return VitalsResponse(**vitals_row)
+
+
+@asha_router.post(
+    "/patients/{patient_id}/visits",
+    response_model=ExistingVisitResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_existing_patient_visit(
+    payload: ExistingVisitCreateRequest,
+    patient_id: str = Path(min_length=1),
+    current_user: CurrentUser = Depends(require_role("asha")),
+    supabase: Client = Depends(get_supabase),
+) -> ExistingVisitResponse:
+    patient_response = (
+        supabase.table("patients")
+        .select("id, asha_id")
+        .eq("id", patient_id)
+        .eq("asha_id", current_user.id)
+        .limit(1)
+        .execute()
+    )
+    owned_patient = _single_row(patient_response.data)
+    if not owned_patient:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The provided patient_id does not belong to the current ASHA.",
+        )
+
+    update_response = (
+        supabase.table("patients")
+        .update({"weeks_pregnant": payload.weeks_pregnant})
+        .eq("id", patient_id)
+        .eq("asha_id", current_user.id)
+        .execute()
+    )
+    if update_response.data is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update patient gestation week.",
+        )
+
+    insert_payload = {
+        "patient_id": patient_id,
+        "blood_pressure_sys": payload.blood_pressure_sys,
+        "blood_pressure_dia": payload.blood_pressure_dia,
+        "symptoms": payload.symptoms,
+    }
+    if payload.recorded_at:
+        insert_payload["recorded_at"] = payload.recorded_at.isoformat()
+
+    visit_response = (
+        supabase.table("vitals")
+        .insert(insert_payload)
+        .execute()
+    )
+    visit_row = _single_row(visit_response.data)
+    if not visit_row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to submit visit record.",
+        )
+
+    return ExistingVisitResponse(
+        id=visit_row["id"],
+        patient_id=visit_row["patient_id"],
+        weeks_pregnant=payload.weeks_pregnant,
+        blood_pressure_sys=visit_row["blood_pressure_sys"],
+        blood_pressure_dia=visit_row["blood_pressure_dia"],
+        symptoms=visit_row.get("symptoms"),
+        recorded_at=visit_row.get("recorded_at"),
+    )
 
 
 @asha_router.post("/predict", response_model=RiskAssessmentResponse, status_code=status.HTTP_201_CREATED)
