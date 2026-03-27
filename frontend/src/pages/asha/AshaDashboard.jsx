@@ -13,7 +13,7 @@ import { predictWithModel } from '../../data/decisionTreeRules';
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
   const { systolicBP, diastolicBP, age, gestationalWeeks,
-          previousPreeclampsia, diabetes, firstPregnancy, hemoglobin, weight, height } = patient;
+          previousPreeclampsia, diabeticHistory, firstPregnancy, hemoglobin, weight, height } = patient;
   const reasons = [];
   let level = 'low';
 
@@ -89,7 +89,8 @@ function calculateRisk(patient) {
       hi: 'प्रीक्लेम्पसिया का इतिहास पुनरावृत्ति संभावना 20-30% बढ़ाता है।' });
     promoteLevel('moderate');
   }
-  if (diabetes) {
+  // Use diabeticHistory (unified field for both local risk engine and API)
+  if (diabeticHistory) {
     reasons.push({ factor: 'Diabetes', value: 'Present', threshold: 'Risk factor', severity: 'moderate',
       en: 'Diabetes increases preeclampsia risk by 2–4×.',
       hi: 'मधुमेह प्रीक्लेम्पसिया जोखिम 2-4 गुना बढ़ाता है।' });
@@ -157,9 +158,16 @@ const RISK_STYLE = {
 };
 
 const EMPTY_FORM = {
-  name: '', age: '', gestationalWeeks: '', systolicBP: '', diastolicBP: '',
+  // Patient fields (POST /asha/patients)
+  name: '', age: '', gestationalWeeks: '', village: '',
+  gravida: '', parity: '', diabeticHistory: false,
+  // Vitals fields (POST /asha/patients/{id}/vitals)
+  systolicBP: '', diastolicBP: '',
   weight: '', height: '', hemoglobin: '',
-  previousPreeclampsia: false, diabetes: false, firstPregnancy: false,
+  pulseRate: '',
+  symptoms: [], // string[] — will be joined to comma-sep string for API
+  // Local risk engine fields (not sent to API)
+  previousPreeclampsia: false, firstPregnancy: false,
 };
 
 // ── NumberInput with ± buttons ────────────────────────────────────────────────
@@ -356,6 +364,16 @@ export default function AshaDashboard() {
   // Form
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    // Symptoms multi-select: toggle item in array
+    if (name === 'symptoms') {
+      setForm(prev => ({
+        ...prev,
+        symptoms: prev.symptoms.includes(value)
+          ? prev.symptoms.filter(s => s !== value)
+          : [...prev.symptoms, value],
+      }));
+      return;
+    }
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
@@ -399,15 +417,31 @@ export default function AshaDashboard() {
       weight:           toNumber(form.weight),
       height:           toNumber(form.height),
       hemoglobin:       toNumber(form.hemoglobin),
+      // Optional numeric fields — NaN is acceptable (will become null)
+      gravida:    form.gravida.trim()   ? toNumber(form.gravida)   : null,
+      parity:     form.parity.trim()    ? toNumber(form.parity)    : null,
+      pulseRate:  form.pulseRate.trim() ? toNumber(form.pulseRate) : null,
     };
 
+    // Validate required fields
+    if (!form.name.trim()) {
+      setSubmitError('Patient name is required.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!form.village.trim()) {
+      setSubmitError('Village is required. / गाँव का नाम ज़रूरी है।');
+      setIsSubmitting(false);
+      return;
+    }
+
     const fieldRules = [
-      { key: 'age', label: 'Age', min: 10, max: 60 },
-      { key: 'gestationalWeeks', label: 'Gestational weeks', min: 1, max: 45 },
-      { key: 'systolicBP', label: 'Systolic BP', min: 70, max: 240 },
-      { key: 'diastolicBP', label: 'Diastolic BP', min: 40, max: 140 },
-      { key: 'weight', label: 'Weight', min: 25, max: 250 },
-      { key: 'hemoglobin', label: 'Hemoglobin', min: 3, max: 25 },
+      { key: 'age',              label: 'Age',              min: 10,  max: 60  },
+      { key: 'gestationalWeeks', label: 'Gestational weeks', min: 1,   max: 45  },
+      { key: 'systolicBP',       label: 'Systolic BP',      min: 70,  max: 240 },
+      { key: 'diastolicBP',      label: 'Diastolic BP',     min: 40,  max: 140 },
+      { key: 'weight',           label: 'Weight',           min: 25,  max: 250 },
+      { key: 'hemoglobin',       label: 'Hemoglobin',       min: 3,   max: 25  },
     ];
 
     for (const rule of fieldRules) {
@@ -422,6 +456,23 @@ export default function AshaDashboard() {
         setIsSubmitting(false);
         return;
       }
+    }
+
+    // Validate optional numeric ranges if provided
+    if (f.pulseRate !== null && (f.pulseRate < 40 || f.pulseRate > 200)) {
+      setSubmitError('Pulse rate must be between 40 and 200 bpm.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (f.gravida !== null && (f.gravida < 1 || f.gravida > 20)) {
+      setSubmitError('Gravida must be between 1 and 20.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (f.parity !== null && (f.parity < 0 || f.parity > 20)) {
+      setSubmitError('Parity must be between 0 and 20.');
+      setIsSubmitting(false);
+      return;
     }
 
     // Derive severeBP (WHO threshold: systolic ≥160 or diastolic ≥110)
@@ -440,14 +491,19 @@ export default function AshaDashboard() {
     const similarCount = SIMILAR_COUNTS[treeResult.prediction] ?? 0;
 
     try {
+      // ── Step 1: Create patient record ─────────────────────────────────────
       const patientResp = await fetch(`${API_BASE_URL}/asha/patients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: f.name,
-          age: f.age,
-          weeks_pregnant: f.gestationalWeeks,
-          village: 'Unknown',
+          name:             form.name.trim(),
+          age:              f.age,
+          weeks_pregnant:   f.gestationalWeeks,
+          village:          form.village.trim(),
+          gravida:          f.gravida,          // null if not provided
+          parity:           f.parity,           // null if not provided
+          diabetic_history: form.diabeticHistory,
+          height_cm:        Number.isFinite(f.height) ? f.height : null,
         }),
       });
       if (!patientResp.ok) {
@@ -455,19 +511,18 @@ export default function AshaDashboard() {
       }
       const createdPatient = await patientResp.json();
 
+      // ── Step 2: Submit vitals for the created patient ────────────────────
+      const symptomsString = form.symptoms.length > 0 ? form.symptoms.join(', ') : null;
       const vitalsResp = await fetch(`${API_BASE_URL}/asha/patients/${createdPatient.id}/vitals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           blood_pressure_sys: f.systolicBP,
           blood_pressure_dia: f.diastolicBP,
-          hemoglobin: f.hemoglobin,
-          weight_kg: f.weight,
-          symptoms: [
-            f.previousPreeclampsia ? 'Previous preeclampsia' : '',
-            f.diabetes ? 'Diabetes' : '',
-            f.firstPregnancy ? 'First pregnancy' : '',
-          ].filter(Boolean).join(', ') || null,
+          hemoglobin:         f.hemoglobin,
+          weight_kg:          f.weight,
+          pulse_rate:         f.pulseRate,   // null if not provided
+          symptoms:           symptomsString,
         }),
       });
       if (!vitalsResp.ok) {
@@ -496,22 +551,27 @@ export default function AshaDashboard() {
       setRiskResult({ patient: f, ...result, treeResult, decisionPath, similarCount });
 
       const newPatient = {
-        id:               createdPatient.id,
-        name:             f.name,
-        age:              f.age,
-        gestationalWeeks: f.gestationalWeeks,
-        systolicBP:       f.systolicBP,
-        diastolicBP:      f.diastolicBP,
-        weight:           f.weight,
-        height:           f.height,
-        hemoglobin:       f.hemoglobin,
-        previousPreeclampsia: f.previousPreeclampsia,
-        diabetes:         f.diabetes,
-        firstPregnancy:   f.firstPregnancy,
-        lastVisitDate:    new Date(),
-        riskLevel:        result.level,
-        visits:           [],
-        ashaWorkerId:     createdPatient.asha_id,
+        id:                  createdPatient.id,
+        name:                form.name.trim(),
+        age:                 f.age,
+        gestationalWeeks:    f.gestationalWeeks,
+        village:             form.village.trim(),
+        gravida:             f.gravida,
+        parity:              f.parity,
+        diabeticHistory:     form.diabeticHistory,
+        systolicBP:          f.systolicBP,
+        diastolicBP:         f.diastolicBP,
+        weight:              f.weight,
+        height:              f.height,
+        hemoglobin:          f.hemoglobin,
+        pulseRate:           f.pulseRate,
+        symptoms:            form.symptoms,
+        previousPreeclampsia: form.previousPreeclampsia,
+        firstPregnancy:      form.firstPregnancy,
+        lastVisitDate:       new Date(),
+        riskLevel:           result.level,
+        visits:              [],
+        ashaWorkerId:        createdPatient.asha_id,
       };
       setPatients(prev => {
         const o = { critical: 0, high: 1, moderate: 2, low: 3 };
@@ -685,6 +745,8 @@ export default function AshaDashboard() {
                     <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">{t('form.patientInfo')}</p>
                       <div className="space-y-3">
+
+                        {/* Name */}
                         <div>
                           <label className="block text-xs font-medium text-muted mb-1">{t('form.name')}</label>
                           <input
@@ -693,10 +755,64 @@ export default function AshaDashboard() {
                             className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
                           />
                         </div>
+
+                        {/* Age + Gestational Weeks */}
                         <div className="grid grid-cols-2 gap-3">
                           <NumberInput label={t('form.age')} name="age" value={form.age} onChange={handleChange} min={14} max={55} required />
                           <NumberInput label={t('form.weeks')} name="gestationalWeeks" value={form.gestationalWeeks} onChange={handleChange} min={1} max={42} required />
                         </div>
+
+                        {/* Village — required */}
+                        <div>
+                          <label className="block text-xs font-medium text-muted mb-1">
+                            {t('form.village')} <span className="text-rose-critical">*</span>
+                          </label>
+                          <input
+                            type="text" name="village" value={form.village} onChange={handleChange}
+                            required placeholder={t('form.villagePlaceholder')}
+                            className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                          />
+                        </div>
+
+                        {/* Gravida + Parity — optional with Hindi helper text */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <NumberInput
+                              label={t('form.gravida')}
+                              name="gravida"
+                              value={form.gravida}
+                              onChange={handleChange}
+                              min={1} max={20}
+                            />
+                            <p className="text-[11px] text-muted/70 mt-1 leading-snug">
+                              {t('form.gravida_hint')}
+                            </p>
+                          </div>
+                          <div>
+                            <NumberInput
+                              label={t('form.parity')}
+                              name="parity"
+                              value={form.parity}
+                              onChange={handleChange}
+                              min={0} max={20}
+                            />
+                            <p className="text-[11px] text-muted/70 mt-1 leading-snug">
+                              {t('form.parity_hint')}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted/60 -mt-1 italic">{t('form.gravidaParityNote')}</p>
+
+                        {/* Diabetes History toggle — unified field */}
+                        <div className="bg-cream rounded-2xl px-4 py-1 border border-blush">
+                          <Toggle
+                            label={t('form.diabeticHistory')}
+                            name="diabeticHistory"
+                            checked={form.diabeticHistory}
+                            onChange={handleChange}
+                          />
+                        </div>
+
                       </div>
                     </div>
 
@@ -711,15 +827,63 @@ export default function AshaDashboard() {
                         <div className="col-span-2">
                           <NumberInput label={t('form.hemoglobin')} name="hemoglobin" value={form.hemoglobin} onChange={handleChange} min={4} max={20} step={0.1} required />
                         </div>
+                        {/* Pulse Rate — optional */}
+                        <div className="col-span-2">
+                          <NumberInput
+                            label={t('form.pulseRate')}
+                            name="pulseRate"
+                            value={form.pulseRate}
+                            onChange={handleChange}
+                            min={40} max={200}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Symptoms multi-select */}
+                      <div className="mt-4">
+                        <p className="text-xs font-medium text-muted mb-2">{t('form.symptoms')}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: 'Headache',        label: t('form.symptom_headache') },
+                            { value: 'Blurred Vision',  label: t('form.symptom_blurred_vision') },
+                            { value: 'Swelling',        label: t('form.symptom_swelling') },
+                            { value: 'Seizures',        label: t('form.symptom_seizures') },
+                          ].map(({ value, label }) => (
+                            <label
+                              key={value}
+                              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all duration-150 ${
+                                form.symptoms.includes(value)
+                                  ? 'border-saffron bg-saffron/10 text-charcoal'
+                                  : 'border-blush bg-cream text-muted hover:border-saffron/50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                name="symptoms"
+                                value={value}
+                                checked={form.symptoms.includes(value)}
+                                onChange={handleChange}
+                                className="sr-only"
+                              />
+                              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
+                                form.symptoms.includes(value) ? 'bg-saffron' : 'bg-white border border-blush'
+                              }`}>
+                                {form.symptoms.includes(value) && (
+                                  <CheckCircle2 size={12} className="text-white" />
+                                )}
+                              </span>
+                              <span className="text-sm font-medium">{label}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* History toggles */}
+                    {/* History toggles (local risk engine factors only) */}
                     <div>
                       <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">{t('form.history')}</p>
                       <div className="bg-cream rounded-2xl px-4 py-1 border border-blush">
                         <Toggle label={t('form.prevPreeclampsia')} name="previousPreeclampsia" checked={form.previousPreeclampsia} onChange={handleChange} />
-                        <Toggle label={t('form.diabetes')}         name="diabetes"             checked={form.diabetes}             onChange={handleChange} />
                         <Toggle label={t('form.firstPregnancy')}   name="firstPregnancy"       checked={form.firstPregnancy}       onChange={handleChange} />
                       </div>
                     </div>
@@ -728,10 +892,22 @@ export default function AshaDashboard() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full min-h-[52px] bg-saffron hover:bg-terracotta text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
+                      className="w-full min-h-[52px] bg-saffron hover:bg-terracotta disabled:opacity-60 text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
                     >
-                      <Activity size={18} />
-                      {isSubmitting ? 'Saving...' : t('form.submit')}
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          {lang === 'hi' ? 'सेव हो रहा है…' : 'Saving…'}
+                        </>
+                      ) : (
+                        <>
+                          <Activity size={18} />
+                          {t('form.submit')}
+                        </>
+                      )}
                     </button>
 
                     {submitError && (
@@ -749,6 +925,12 @@ export default function AshaDashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         className="p-6 space-y-5"
                       >
+                        {/* Success confirmation banner */}
+                        <div className="flex items-center gap-2.5 bg-sage/15 border border-sage/40 text-sage rounded-xl px-4 py-3">
+                          <CheckCircle2 size={18} className="flex-shrink-0" />
+                          <p className="text-sm font-semibold">{t('form.successMessage')}</p>
+                        </div>
+
                         {/* Level badge */}
                         {(() => {
                           const rs = RISK_STYLE[riskResult.level];
