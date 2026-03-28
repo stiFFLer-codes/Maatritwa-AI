@@ -147,14 +147,8 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase),
 ) -> CurrentUser:
-    # DISABLED AUTH: Resolve to an existing ASHA user so UUID foreign keys remain valid.
-    default_asha_id = _get_default_asha_user_id(supabase)
-    if not default_asha_id:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No ASHA user found. Create one row in users/asha_profiles before using ASHA APIs.",
-        )
-    return CurrentUser(id=default_asha_id, role="asha")
+    # DISABLED AUTH: Return mock ASHA user for development (uses valid UUID format)
+    return CurrentUser(id="550e8400-e29b-41d4-a716-446655440000", role="asha")
 
 
 def require_role(required_role: str):

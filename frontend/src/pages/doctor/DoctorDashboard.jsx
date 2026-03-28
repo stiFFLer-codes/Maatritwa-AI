@@ -7,6 +7,8 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 
+const API_BASE_URL = 'http://localhost:8000';
+
 const RISK_COLORS = {
   critical: 'bg-red-100 text-red-700 border border-red-200',
   elevated: 'bg-orange-100 text-orange-700 border border-orange-200',
@@ -500,7 +502,7 @@ export default function DoctorDashboard() {
   const fetchReferrals = async () => {
     setLoadingReferrals(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/doctor/referrals');
+      const res = await fetch(`${API_BASE_URL}/doctor/referrals`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReferrals(Array.isArray(data) ? data : []);
@@ -533,7 +535,7 @@ export default function DoctorDashboard() {
     setSelectedReferralId(referralId);
     setLoadingDetail(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/doctor/referrals/${referralId}`);
+      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSelectedDetail(data);
@@ -549,7 +551,7 @@ export default function DoctorDashboard() {
   const updateStatus = async (referralId, status) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/doctor/referrals/${referralId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -570,7 +572,7 @@ export default function DoctorDashboard() {
   const saveNotes = async (referralId, notes) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/doctor/referrals/${referralId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes }),
@@ -591,7 +593,7 @@ export default function DoctorDashboard() {
   const saveLabs = async (patientId, labsPayload) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/doctor/patients/${patientId}/labs`, {
+      const res = await fetch(`${API_BASE_URL}/doctor/patients/${patientId}/labs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(labsPayload),
@@ -613,7 +615,7 @@ export default function DoctorDashboard() {
   const quickRefer = async (patientId) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/doctor/patients/${patientId}/refer`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/doctor/patients/${patientId}/refer`, { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const created = await res.json();
       setReferrals((prev) => {
