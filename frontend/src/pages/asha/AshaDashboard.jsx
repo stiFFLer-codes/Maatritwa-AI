@@ -665,7 +665,7 @@ export default function AshaDashboard() {
   // Fetch patients from backend API
   useEffect(() => {
     setLoadingPatients(true);
-    fetch('http://127.0.0.1:8000/asha/patients')
+    fetch(`${API_BASE_URL}/asha/patients`)
       .then(res => res.json())
       .then(data => {
         const normalized = (Array.isArray(data) ? data : []).map(normalizePatient);
