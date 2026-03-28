@@ -727,7 +727,7 @@ export default function DoctorDashboard() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-7">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-5 py-6 space-y-7">
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
