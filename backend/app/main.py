@@ -7,7 +7,7 @@ from supabase import Client
 
 from .auth import CurrentUser
 from .db import get_supabase
-from .ml import RiskPredictor
+from .ml import EclampsiaPredictor, RiskPredictor
 from .routers.asha import asha_router
 from .routers.doctor import doctor_router
 from .routers.mother import mother_router
@@ -24,6 +24,7 @@ class UserProfile(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.risk_predictor = RiskPredictor.from_env()
+    app.state.eclampsia_predictor = EclampsiaPredictor.from_env()
     yield
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Calendar, Plus, X, Mic, MicOff,
@@ -138,13 +138,60 @@ function calculateRisk(patient) {
 const TODAY = new Date('2026-03-24');
 const API_BASE_URL = 'http://localhost:8000';
 
+const RISK_MAP = {
+  low: 'low',
+  safe: 'low',
+  moderate: 'moderate',
+  medium: 'moderate',
+  monitor: 'moderate',
+  elevated: 'high',
+  high: 'high',
+  critical: 'critical',
+};
+
+function toRiskLevel(level) {
+  if (!level || typeof level !== 'string') return 'low';
+  return RISK_MAP[level.toLowerCase()] || 'low';
+}
+
+function splitSymptoms(symptoms) {
+  if (!symptoms || typeof symptoms !== 'string') return [];
+  return symptoms.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function normalizePatient(row) {
+  const bpSys = Number(row?.blood_pressure_sys);
+  const bpDia = Number(row?.blood_pressure_dia);
+  const weeksPregnant = Number(row?.weeks_pregnant);
+  return {
+    id: row?.id,
+    name: row?.name || 'Unknown',
+    age: Number(row?.age) || 0,
+    gestationalWeeks: Number.isFinite(weeksPregnant) ? weeksPregnant : 0,
+    village: row?.village || '',
+    systolicBP: Number.isFinite(bpSys) ? bpSys : null,
+    diastolicBP: Number.isFinite(bpDia) ? bpDia : null,
+    riskLevel: toRiskLevel(row?.risk_level),
+    lastVisitDate: row?.last_visit_date || row?.created_at || null,
+    visitCount: Number(row?.visit_count) || 0,
+    riskAssessmentCount: Number(row?.risk_assessment_count) || 0,
+    pendingReferralCount: Number(row?.pending_referral_count) || 0,
+    symptoms: splitSymptoms(row?.symptoms),
+    visits: [],
+  };
+}
+
 function daysSince(date) {
+  if (!date) return null;
   const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
   return Math.floor((TODAY - d) / (1000 * 60 * 60 * 24));
 }
 
 function fmt(date) {
+  if (!date) return '--';
   const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '--';
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
@@ -238,15 +285,38 @@ function Toggle({ label, name, checked, onChange }) {
 }
 
 // ── Patient row card ─────────────────────────────────────────────────────────
-function PatientCard({ patient }) {
-  const overdue = daysSince(patient.lastVisitDate) >= 14;
+function PatientCard({
+  patient,
+  expanded,
+  onToggle,
+  onRefer,
+  details,
+  loadingDetails,
+  detailsError,
+  eclampsiaResult,
+  eclampsiaLoading,
+  onPredictEclampsia,
+  referralLoading,
+  referralMessage,
+}) {
+  const visitDays = daysSince(patient.lastVisitDate);
+  const overdue = visitDays !== null && visitDays >= 14;
+  const bpText = patient.systolicBP && patient.diastolicBP
+    ? `${patient.systolicBP}/${patient.diastolicBP}`
+    : '--/--';
+  const showRefer = patient.riskLevel === 'critical' || patient.riskLevel === 'high' || patient.riskLevel === 'elevated';
+  const accentClass = patient.riskLevel === 'critical'
+    ? 'border-l-4 border-l-red-400'
+    : (patient.riskLevel === 'high' || patient.riskLevel === 'elevated')
+      ? 'border-l-4 border-l-amber-400'
+      : '';
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-ivory rounded-2xl px-5 py-4 shadow-soft border border-blush hover:shadow-warm hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
-      onClick={() => console.log('Patient selected:', patient.name, patient.id)}
+      className={`bg-ivory rounded-2xl px-5 py-4 shadow-soft border border-blush hover:shadow-warm transition-all duration-200 group ${accentClass}`}
     >
       <div className="flex items-center gap-3">
         {/* Risk dot */}
@@ -263,10 +333,11 @@ function PatientCard({ patient }) {
           <p className="font-serif text-base font-semibold text-charcoal truncate group-hover:text-terracotta transition-colors">
             {patient.name}
           </p>
+          <p className="text-xs text-muted mt-0.5 truncate">{patient.village || '--'}</p>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted">
             <span className="flex items-center gap-1"><User size={10} /> {patient.age} yrs</span>
             <span className="flex items-center gap-1"><Baby size={10} /> Wk {patient.gestationalWeeks}</span>
-            <span className="flex items-center gap-1"><Activity size={10} /> {patient.systolicBP}/{patient.diastolicBP}</span>
+            <span className="flex items-center gap-1"><Activity size={10} /> {bpText}</span>
             {overdue && (
               <span className="flex items-center gap-1 text-rose-critical font-medium">
                 <Clock size={10} /> Overdue
@@ -278,34 +349,262 @@ function PatientCard({ patient }) {
         {/* Badge + chevron */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <RiskBadge level={patient.riskLevel} />
-          <ChevronRight size={14} className="text-muted group-hover:text-saffron transition-colors" />
+          <button
+            type="button"
+            onClick={onToggle}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-saffron hover:bg-blush/50 transition-colors"
+            aria-label={expanded ? 'Collapse patient details' : 'Expand patient details'}
+          >
+            <ChevronRight
+              size={16}
+              className={`transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+            />
+          </button>
         </div>
       </div>
 
       {/* Last visit */}
       <div className={`flex items-center gap-1 mt-2.5 text-xs ${overdue ? 'text-rose-critical' : 'text-muted/70'}`}>
         <Clock size={10} />
-        Last visit: {fmt(patient.lastVisitDate)} ({daysSince(patient.lastVisitDate)}d ago)
+        Last visit: {fmt(patient.lastVisitDate)} {visitDays !== null ? `(${visitDays}d ago)` : '(No visit yet)'}
       </div>
+      {showRefer && (
+        <div className="mt-2.5 flex justify-end">
+          <button
+            type="button"
+            onClick={onRefer}
+            disabled={referralLoading}
+            className="h-8 px-3 rounded-lg border border-terracotta/50 text-terracotta text-xs font-semibold hover:bg-terracotta/10 disabled:opacity-60 transition-colors"
+          >
+            {referralLoading ? 'Referring...' : 'Refer to Doctor'}
+          </button>
+        </div>
+      )}
+      {referralMessage && (
+        <p className={`mt-1 text-xs ${referralMessage.type === 'success' ? 'text-sage' : 'text-rose-critical'}`}>
+          {referralMessage.text}
+        </p>
+      )}
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-blush bg-cream/70 p-3 space-y-3">
+              {loadingDetails && (
+                <p className="text-xs text-muted">Loading patient details...</p>
+              )}
+
+              {detailsError && (
+                <p className="text-xs text-rose-critical font-medium">{detailsError}</p>
+              )}
+
+              {!loadingDetails && !detailsError && details && (
+                <>
+                  {(() => {
+                    const minVisits = 3;
+                    const visitCount = details.visits.length;
+                    const visitsLeft = Math.max(0, minVisits - visitCount);
+                    const hasPrediction = !!(eclampsiaResult && eclampsiaResult.eligible && eclampsiaResult.risk_level);
+                    const riskLevel = hasPrediction ? eclampsiaResult.risk_level : null;
+                    const riskTheme = {
+                      critical: {
+                        wrap: 'bg-rose-critical/10 border-rose-critical/40',
+                        title: 'text-rose-critical',
+                        chip: 'bg-rose-critical text-white',
+                        cta: 'Refer to Doctor Now',
+                        icon: '🔴',
+                      },
+                      high: {
+                        wrap: 'bg-terracotta/10 border-terracotta/40',
+                        title: 'text-terracotta',
+                        chip: 'bg-terracotta text-white',
+                        cta: 'Urgent Doctor Review',
+                        icon: '🟠',
+                      },
+                      moderate: {
+                        wrap: 'bg-amber-alert/10 border-amber-alert/40',
+                        title: 'text-amber-alert',
+                        chip: 'bg-amber-alert text-white',
+                        cta: 'Schedule Doctor Follow-up',
+                        icon: '🟡',
+                      },
+                      low: {
+                        wrap: 'bg-sage/10 border-sage/40',
+                        title: 'text-sage',
+                        chip: 'bg-sage text-white',
+                        cta: 'Continue Routine Monitoring',
+                        icon: '🟢',
+                      },
+                    };
+                    const currentTheme = riskTheme[riskLevel] || riskTheme.low;
+                    const flags = Array.isArray(eclampsiaResult?.flags) ? eclampsiaResult.flags : [];
+
+                    return (
+                      <div className="rounded-xl border border-blush bg-ivory p-3 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-charcoal uppercase tracking-wider">Eclampsia Prediction</p>
+                            <p className="text-[11px] text-muted">Unlocks after 3 visits</p>
+                          </div>
+                          <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-blush text-charcoal">
+                            {visitCount}/{minVisits} visits
+                          </span>
+                        </div>
+
+                        {visitCount < minVisits && (
+                          <div className="rounded-xl border border-blush bg-cream px-3 py-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              {[1, 2, 3].map((idx) => (
+                                <span
+                                  key={idx}
+                                  className={`w-3 h-3 rounded-full ${idx <= visitCount ? 'bg-saffron' : 'bg-blush'}`}
+                                />
+                              ))}
+                              <p className="text-xs font-medium text-charcoal">{visitCount} of 3 visits recorded</p>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-blush overflow-hidden">
+                              <div
+                                className="h-full bg-saffron transition-all duration-300"
+                                style={{ width: `${Math.min(100, (visitCount / minVisits) * 100)}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted mt-2">
+                              Add {visitsLeft} more visit{visitsLeft > 1 ? 's' : ''} to unlock prediction.
+                            </p>
+                          </div>
+                        )}
+
+                        {visitCount >= minVisits && !hasPrediction && (
+                          <button
+                            type="button"
+                            onClick={onPredictEclampsia}
+                            disabled={eclampsiaLoading}
+                            className="w-full h-11 rounded-xl bg-saffron text-white font-semibold text-sm hover:bg-terracotta disabled:opacity-60 transition-colors"
+                          >
+                            {eclampsiaLoading ? 'Running Eclampsia Prediction...' : 'Run Eclampsia Prediction'}
+                          </button>
+                        )}
+
+                        {hasPrediction && (
+                          <div className={`rounded-xl border px-3 py-3 ${currentTheme.wrap}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className={`text-sm font-bold uppercase tracking-wide ${currentTheme.title}`}>
+                                  {currentTheme.icon} Eclampsia Risk: {riskLevel}
+                                </p>
+                                <p className="text-xs text-charcoal mt-1">
+                                  Score {Math.round((eclampsiaResult.risk_score || 0) * 100)}% · Based on {visitCount} visits
+                                </p>
+                              </div>
+                              <span className={`text-[11px] font-bold px-2 py-1 rounded-full uppercase ${currentTheme.chip}`}>
+                                {riskLevel}
+                              </span>
+                            </div>
+
+                            {flags.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {flags.map((flag) => (
+                                  <span key={flag} className="text-[11px] px-2 py-1 rounded-full bg-white/80 text-charcoal border border-blush">
+                                    {flag.replace(/_/g, ' ')}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <p className="text-xs font-semibold text-charcoal">{currentTheme.cta}</p>
+                              <button
+                                type="button"
+                                onClick={onPredictEclampsia}
+                                disabled={eclampsiaLoading}
+                                className="text-xs font-semibold text-charcoal hover:text-terracotta transition-colors"
+                              >
+                                Re-run →
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {eclampsiaResult && !eclampsiaResult.eligible && visitCount >= minVisits && (
+                          <p className="text-xs text-rose-critical font-medium">{eclampsiaResult.message}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="rounded-lg bg-ivory border border-blush p-2">
+                      <p className="text-[11px] text-muted">Current Week</p>
+                      <p className="text-sm font-semibold text-charcoal">{details.patient.gestationalWeeks || '--'}</p>
+                    </div>
+                    <div className="rounded-lg bg-ivory border border-blush p-2">
+                      <p className="text-[11px] text-muted">Current BP</p>
+                      <p className="text-sm font-semibold text-charcoal">{details.patient.systolicBP && details.patient.diastolicBP ? `${details.patient.systolicBP}/${details.patient.diastolicBP}` : '--/--'}</p>
+                    </div>
+                    <div className="rounded-lg bg-ivory border border-blush p-2">
+                      <p className="text-[11px] text-muted">Total Visits</p>
+                      <p className="text-sm font-semibold text-charcoal">{details.visits.length}</p>
+                    </div>
+                    <div className="rounded-lg bg-ivory border border-blush p-2">
+                      <p className="text-[11px] text-muted">Latest Risk</p>
+                      <p className="text-sm font-semibold capitalize text-charcoal">{details.patient.riskLevel}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">Visit Timeline</p>
+                    {details.visits.length === 0 ? (
+                      <p className="text-xs text-muted">No visits recorded yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                        {details.visits.map((visit) => (
+                          <div key={visit.id} className="rounded-lg bg-ivory border border-blush p-2.5">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="text-xs font-semibold text-charcoal">{fmt(visit.recordedAt)}</p>
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blush text-charcoal capitalize">{visit.riskLevel}</span>
+                            </div>
+                            <p className="text-xs text-muted">BP: {visit.bloodPressureSys ?? '--'}/{visit.bloodPressureDia ?? '--'}</p>
+                            <p className="text-xs text-muted mt-0.5">Symptoms: {visit.symptoms.length ? visit.symptoms.join(', ') : 'None'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
 
 // ── Alert card ────────────────────────────────────────────────────────────────
-function AlertCard({ patient, lang }) {
+function AlertCard({ patient, lang, onOpenDetails }) {
   const isCritical = patient.riskLevel === 'critical';
   const result = useMemo(() => calculateRisk(patient), [patient]);
+  const bpText = patient.systolicBP && patient.diastolicBP
+    ? `${patient.systolicBP}/${patient.diastolicBP}`
+    : '--/--';
 
   return (
     <motion.div
       layout
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
+      whileHover={{ y: -2 }}
+      onClick={() => onOpenDetails(patient.id)}
       className={`rounded-2xl p-4 border-l-4 ${
         isCritical
           ? 'bg-rose-critical/5 border-l-rose-critical animate-pulse-border'
           : 'bg-terracotta/5 border-l-terracotta'
-      }`}
+      } cursor-pointer hover:shadow-soft transition-all duration-200`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
@@ -313,14 +612,21 @@ function AlertCard({ patient, lang }) {
           <div className="min-w-0">
             <p className="font-serif font-semibold text-charcoal truncate">{patient.name}</p>
             <p className="text-xs text-muted mt-0.5">
-              {patient.age} yrs · Wk {patient.gestationalWeeks} · BP {patient.systolicBP}/{patient.diastolicBP}
+              {patient.age} yrs · Wk {patient.gestationalWeeks} · BP {bpText}
             </p>
             <p className={`text-xs font-semibold mt-1.5 ${isCritical ? 'text-rose-critical' : 'text-terracotta'}`}>
               → {lang === 'hi' ? result.action.hi : result.action.en}
             </p>
+            <p className="text-[11px] text-muted/80 mt-1 flex items-center gap-1">
+              <ChevronRight size={12} />
+              {lang === 'hi' ? 'विवरण देखने के लिए टैप करें' : 'Tap to view patient details'}
+            </p>
           </div>
         </div>
-        <RiskBadge level={patient.riskLevel} />
+        <div className="flex items-center gap-2">
+          <RiskBadge level={patient.riskLevel} />
+          <ChevronRight size={14} className="text-muted" />
+        </div>
       </div>
     </motion.div>
   );
@@ -342,6 +648,19 @@ export default function AshaDashboard() {
   const [submitError, setSubmitError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const [expandedPatientId, setExpandedPatientId] = useState(null);
+  const [patientDetails, setPatientDetails] = useState({});
+  const [loadingDetailsById, setLoadingDetailsById] = useState({});
+  const [detailsErrorById, setDetailsErrorById] = useState({});
+  const [eclampsiaById, setEclampsiaById] = useState({});
+  const [eclampsiaLoadingById, setEclampsiaLoadingById] = useState({});
+  const [referralLoadingById, setReferralLoadingById] = useState({});
+  const [referralMessageById, setReferralMessageById] = useState({});
+  const patientsSectionRef = useRef(null);
+  const alertsSectionRef = useRef(null);
+  const [activeSummaryFilter, setActiveSummaryFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
+  const [riskFilter, setRiskFilter] = useState('all');
 
   // Fetch patients from backend API
   useEffect(() => {
@@ -349,7 +668,8 @@ export default function AshaDashboard() {
     fetch('http://127.0.0.1:8000/asha/patients')
       .then(res => res.json())
       .then(data => {
-        const sorted = [...(Array.isArray(data) ? data : [])].sort((a, b) => {
+        const normalized = (Array.isArray(data) ? data : []).map(normalizePatient);
+        const sorted = [...normalized].sort((a, b) => {
           const o = { critical: 0, high: 1, moderate: 2, low: 3 };
           return (o[a.riskLevel] ?? 99) - (o[b.riskLevel] ?? 99);
         });
@@ -364,20 +684,242 @@ export default function AshaDashboard() {
       .finally(() => setLoadingPatients(false));
   }, []);
 
+  const fetchPatientDetails = async (patientId) => {
+    if (!patientId || patientDetails[patientId]) return;
+
+    setLoadingDetailsById((prev) => ({ ...prev, [patientId]: true }));
+    setDetailsErrorById((prev) => ({ ...prev, [patientId]: '' }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/asha/patients/${patientId}/details`);
+      if (!response.ok) {
+        throw new Error(`Failed to load patient details (HTTP ${response.status})`);
+      }
+
+      const payload = await response.json();
+      const normalizedPatient = normalizePatient(payload.patient || {});
+      const normalizedVisits = (Array.isArray(payload.visits) ? payload.visits : []).map((visit) => ({
+        id: visit.id,
+        recordedAt: visit.recorded_at,
+        bloodPressureSys: visit.blood_pressure_sys,
+        bloodPressureDia: visit.blood_pressure_dia,
+        symptoms: splitSymptoms(visit.symptoms),
+        riskLevel: toRiskLevel(visit.risk_level),
+      }));
+
+      setPatientDetails((prev) => ({
+        ...prev,
+        [patientId]: {
+          patient: normalizedPatient,
+          visits: normalizedVisits,
+        },
+      }));
+    } catch (error) {
+      setDetailsErrorById((prev) => ({
+        ...prev,
+        [patientId]: error?.message || 'Failed to load details',
+      }));
+    } finally {
+      setLoadingDetailsById((prev) => ({ ...prev, [patientId]: false }));
+    }
+  };
+
+  const handleTogglePatient = (patientId) => {
+    setExpandedPatientId((prev) => {
+      const next = prev === patientId ? null : patientId;
+      if (next) {
+        fetchPatientDetails(next);
+      }
+      return next;
+    });
+  };
+
+  const handleOpenFromAlert = (patientId) => {
+    setExpandedPatientId(patientId);
+    fetchPatientDetails(patientId);
+    patientsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handlePredictEclampsia = async (patientId) => {
+    setEclampsiaLoadingById((prev) => ({ ...prev, [patientId]: true }));
+    try {
+      const response = await fetch(`${API_BASE_URL}/asha/patients/${patientId}/eclampsia-risk`);
+      if (!response.ok) {
+        throw new Error(`Failed to predict (HTTP ${response.status})`);
+      }
+      const payload = await response.json();
+      setEclampsiaById((prev) => ({ ...prev, [patientId]: payload }));
+    } catch (error) {
+      setEclampsiaById((prev) => ({
+        ...prev,
+        [patientId]: {
+          eligible: false,
+          min_visits_required: 3,
+          available_visits: 0,
+          message: error?.message || 'Prediction failed',
+        },
+      }));
+    } finally {
+      setEclampsiaLoadingById((prev) => ({ ...prev, [patientId]: false }));
+    }
+  };
+
+  const handleCreateReferral = async (patientId, riskLevel) => {
+    setReferralLoadingById((prev) => ({ ...prev, [patientId]: true }));
+    setReferralMessageById((prev) => ({ ...prev, [patientId]: null }));
+    try {
+      const response = await fetch(`${API_BASE_URL}/asha/referrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patientId,
+          notes: `Auto-referral from ASHA dashboard (${riskLevel} risk).`,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `Referral failed (HTTP ${response.status})`);
+      }
+      setPatients((prev) => prev.map((p) => (
+        p.id === patientId
+          ? { ...p, pendingReferralCount: (p.pendingReferralCount || 0) + 1 }
+          : p
+      )));
+      setReferralMessageById((prev) => ({
+        ...prev,
+        [patientId]: { type: 'success', text: 'Referral sent to doctor.' },
+      }));
+    } catch (error) {
+      setReferralMessageById((prev) => ({
+        ...prev,
+        [patientId]: { type: 'error', text: error?.message || 'Failed to create referral.' },
+      }));
+    } finally {
+      setReferralLoadingById((prev) => ({ ...prev, [patientId]: false }));
+    }
+  };
+
   useEffect(() => {
     setVoiceAvailable(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
   }, []);
 
   // Stats
-  const stats = useMemo(() => ({
-    total:    patients.length,
-    highRisk: patients.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical').length,
-    due:      patients.filter(p => daysSince(p.lastVisitDate) >= 14).length,
-  }), [patients]);
+  const stats = useMemo(() => {
+    const visitsDue = patients.filter((p) => {
+      if (!p.lastVisitDate) return true;
+      const d = new Date(p.lastVisitDate);
+      if (Number.isNaN(d.getTime())) return true;
+      const diffDays = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays > 14;
+    }).length;
 
-  const alerts = useMemo(() =>
-    patients.filter(p => p.riskLevel === 'high' || p.riskLevel === 'critical'),
-  [patients]);
+    return {
+      total: patients.length,
+      critical: patients.filter((p) => p.riskLevel === 'critical').length,
+      elevated: patients.filter((p) => p.riskLevel === 'high' || p.riskLevel === 'elevated').length,
+      due: visitsDue,
+    };
+  }, [patients]);
+
+  const listPatients = useMemo(() => {
+    const rank = { critical: 0, high: 1, elevated: 1, moderate: 2, low: 3, safe: 3 };
+    const query = searchText.trim().toLowerCase();
+
+    return [...patients]
+      .filter((p) => {
+        if (!query) return true;
+        return [p.name, p.village].some((v) => String(v || '').toLowerCase().includes(query));
+      })
+      .filter((p) => {
+        if (riskFilter === 'all') return true;
+        if (riskFilter === 'critical') return p.riskLevel === 'critical';
+        if (riskFilter === 'elevated') return p.riskLevel === 'high' || p.riskLevel === 'elevated';
+        if (riskFilter === 'safe') return p.riskLevel === 'low' || p.riskLevel === 'safe';
+        return true;
+      })
+      .sort((a, b) => {
+        const r = (rank[a.riskLevel] ?? 99) - (rank[b.riskLevel] ?? 99);
+        if (r !== 0) return r;
+        return (b.lastVisitDate ? new Date(b.lastVisitDate).getTime() : 0) - (a.lastVisitDate ? new Date(a.lastVisitDate).getTime() : 0);
+      });
+  }, [patients, searchText, riskFilter]);
+
+  const readyPredictions = useMemo(
+    () => listPatients.filter((p) => {
+      const details = patientDetails[p.id];
+      const prediction = eclampsiaById[p.id];
+      return details?.visits?.length >= 3 && prediction?.eligible;
+    }),
+    [listPatients, patientDetails, eclampsiaById],
+  );
+
+  const todaysActions = useMemo(() => {
+    const actions = [];
+
+    for (const patient of patients) {
+      const days = patient.lastVisitDate ? ((Date.now() - new Date(patient.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
+      const overdue = patient.visitCount === 0 || days === null || Number.isNaN(days) || days > 14;
+
+      if (patient.riskLevel === 'critical' && (patient.pendingReferralCount || 0) === 0) {
+        actions.push({
+          patientId: patient.id,
+          rule: 1,
+          colorDot: 'bg-rose-critical',
+          colorText: 'text-rose-critical',
+          text: lang === 'hi' ? `→ ${patient.name} को डॉक्टर के पास भेजें` : `→ Refer ${patient.name} to doctor`,
+          onClick: () => handleCreateReferral(patient.id, patient.riskLevel),
+        });
+        continue;
+      }
+
+      if (overdue) {
+        actions.push({
+          patientId: patient.id,
+          rule: 2,
+          colorDot: 'bg-amber-alert',
+          colorText: 'text-amber-alert',
+          text: lang === 'hi' ? `→ ${patient.name} की विज़िट करें` : `→ Visit ${patient.name}`,
+          onClick: () => handleOpenFromAlert(patient.id),
+        });
+        continue;
+      }
+
+      if (patient.visitCount === 3 && (patient.riskAssessmentCount || 0) === 0) {
+        actions.push({
+          patientId: patient.id,
+          rule: 3,
+          colorDot: 'bg-saffron',
+          colorText: 'text-terracotta',
+          text: lang === 'hi' ? `→ ${patient.name} की भविष्यवाणी चलाएं` : `→ Run prediction for ${patient.name}`,
+          onClick: () => handlePredictEclampsia(patient.id),
+        });
+        continue;
+      }
+
+      if (patient.visitCount === 1 || patient.visitCount === 2) {
+        actions.push({
+          patientId: patient.id,
+          rule: 4,
+          colorDot: 'bg-warm-gray',
+          colorText: 'text-muted',
+          text: lang === 'hi'
+            ? `→ ${patient.name} की विज़िट जोड़ें (${patient.visitCount}/3)`
+            : `→ Add visit for ${patient.name} (${patient.visitCount}/3)`,
+          onClick: () => {
+            setShowForm(true);
+            setFormMode('existing-visit');
+            setSubmitted(false);
+            setRiskResult(null);
+            setSubmitError('');
+            setVisitForm((prev) => ({ ...EMPTY_VISIT_FORM, patientId: patient.id, visitDate: prev.visitDate }));
+          },
+        });
+      }
+    }
+
+    return actions.sort((a, b) => a.rule - b.rule).slice(0, 5);
+  }, [patients, lang]);
 
   // Form
   const handleChange = (e) => {
@@ -718,7 +1260,7 @@ export default function AshaDashboard() {
       };
       setPatients(prev => {
         const o = { critical: 0, high: 1, moderate: 2, low: 3 };
-        return [newPatient, ...prev].sort((a, b) => o[a.riskLevel] - o[b.riskLevel]);
+        return [newPatient, ...prev].sort((a, b) => (o[a.riskLevel] ?? 99) - (o[b.riskLevel] ?? 99));
       });
       setSubmitted(true);
     } catch (err) {
@@ -787,7 +1329,7 @@ export default function AshaDashboard() {
     <div className="min-h-screen bg-cream">
       <TopBar />
 
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* ── Greeting ─────────────────────────────────────────────────────── */}
         <motion.div
@@ -801,63 +1343,162 @@ export default function AshaDashboard() {
           <p className="text-sm text-muted mt-1">{todayStr}</p>
         </motion.div>
 
-        {/* ── Stats ────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: t('totalPatients'), value: stats.total,    icon: Users,        color: 'bg-saffron/10 text-saffron' },
-            { label: t('highRisk'),      value: stats.highRisk, icon: AlertTriangle, color: 'bg-rose-critical/10 text-rose-critical' },
-            { label: t('dueForVisit'),   value: stats.due,      icon: Calendar,      color: 'bg-amber-alert/10 text-amber-alert' },
-          ].map(({ label, value, icon: Icon, color }, i) => (
-            <motion.div
-              key={label}
-              custom={i}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08, type: 'spring', stiffness: 120 }}
-              className="bg-ivory rounded-2xl px-4 py-5 shadow-soft border border-blush text-center"
-            >
-              <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center mx-auto mb-2`}>
-                <Icon size={17} />
+        <div className="flex flex-col lg:flex-row lg:items-start gap-6 mt-6">
+          <div className="flex-1 min-w-0" ref={patientsSectionRef}>
+            <div className="bg-ivory rounded-2xl border border-blush shadow-soft p-4 mb-4">
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="मरीज़ खोजें..."
+                className="w-full h-11 px-4 rounded-xl border-2 border-blush bg-cream text-charcoal focus:outline-none focus:border-saffron transition-colors"
+              />
+              <div className="flex flex-wrap gap-2 mt-3">
+                {[
+                  { key: 'all', label: 'सभी' },
+                  { key: 'critical', label: 'गंभीर' },
+                  { key: 'elevated', label: 'उच्च जोखिम' },
+                  { key: 'safe', label: 'सुरक्षित' },
+                ].map((pill) => (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={() => setRiskFilter(pill.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      riskFilter === pill.key
+                        ? 'bg-saffron text-white border-saffron'
+                        : 'bg-cream text-charcoal border-blush hover:border-saffron/60'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
               </div>
-              <p className="font-serif text-3xl font-bold text-charcoal leading-none">{value}</p>
-              <p className="text-xs text-muted mt-1 leading-tight">{label}</p>
-            </motion.div>
-          ))}
+            </div>
+
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={15} className="text-saffron" />
+                <h2 className="font-serif text-lg text-charcoal">{t('allPatients')}</h2>
+                <span className="ml-auto text-xs text-muted">{listPatients.length} {t('total')}</span>
+              </div>
+              <div className="space-y-2.5">
+                {listPatients.map((p) => (
+                  <PatientCard
+                    key={p.id}
+                    patient={p}
+                    expanded={expandedPatientId === p.id}
+                    onToggle={() => handleTogglePatient(p.id)}
+                    onRefer={() => handleCreateReferral(p.id, p.riskLevel)}
+                    details={patientDetails[p.id]}
+                    loadingDetails={!!loadingDetailsById[p.id]}
+                    detailsError={detailsErrorById[p.id]}
+                    eclampsiaResult={eclampsiaById[p.id]}
+                    eclampsiaLoading={!!eclampsiaLoadingById[p.id]}
+                    onPredictEclampsia={() => handlePredictEclampsia(p.id)}
+                    referralLoading={!!referralLoadingById[p.id]}
+                    referralMessage={referralMessageById[p.id]}
+                  />
+                ))}
+                {listPatients.length === 0 && (
+                  <div className="rounded-xl border border-blush bg-ivory px-4 py-5 text-center">
+                    <p className="text-sm text-muted">{lang === 'hi' ? 'कोई मरीज़ नहीं मिला।' : 'No patients found.'}</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          <div className="w-full lg:w-[340px] shrink-0 self-start">
+            <div className="lg:sticky lg:top-20 space-y-4">
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setShowForm(true);
+                  setFormMode('new-patient');
+                  setSubmitted(false);
+                  setRiskResult(null);
+                  setSubmitError('');
+                  setForm(EMPTY_FORM);
+                  setVisitForm(EMPTY_VISIT_FORM);
+                }}
+                className="w-full min-h-[52px] flex items-center justify-center gap-2.5 bg-saffron hover:bg-terracotta text-white font-semibold text-base rounded-2xl shadow-warm hover:shadow-warm-lg transition-all duration-200"
+              >
+                <Plus size={20} />
+                {t('recordVisit')}
+              </motion.button>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'कुल मरीज़', value: stats.total },
+                  { label: 'गंभीर', value: stats.critical },
+                  { label: 'उच्च जोखिम', value: stats.elevated },
+                  { label: 'विज़िट बाकी', value: stats.due },
+                ].map((card) => (
+                  <div key={card.label} className="bg-ivory rounded-xl p-4 border border-blush shadow-soft">
+                    <p className="font-serif text-2xl font-bold text-charcoal leading-none">{card.value}</p>
+                    <p className="text-xs text-muted mt-1">{card.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-ivory rounded-2xl p-4 border border-blush shadow-soft">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <h3 className="font-semibold text-charcoal text-sm">{lang === 'hi' ? 'आज के काम' : "Today's Actions"}</h3>
+                  {todaysActions.length === 0 ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage">
+                      <CheckCircle2 size={12} />
+                      0
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-saffron/15 text-saffron">
+                      {todaysActions.length}
+                    </span>
+                  )}
+                </div>
+
+                {todaysActions.length === 0 ? (
+                  <p className="text-xs text-sage font-medium">{lang === 'hi' ? 'सब ठीक है! आज कोई काम नहीं' : 'All caught up!'}</p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto">
+                    {todaysActions.map((action, idx) => (
+                      <button
+                        key={`${action.patientId}-${action.rule}-${idx}`}
+                        type="button"
+                        onClick={action.onClick}
+                        className="w-full text-left flex items-start gap-2 py-2 border-b border-gray-100 last:border-0"
+                      >
+                        <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${action.colorDot}`} />
+                        <span className={`text-sm ${action.colorText}`}>{action.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ── Record Visit button ───────────────────────────────────────────── */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            setShowForm(true);
-            setFormMode('new-patient');
-            setSubmitted(false);
-            setRiskResult(null);
-            setSubmitError('');
-            setForm(EMPTY_FORM);
-            setVisitForm(EMPTY_VISIT_FORM);
-          }}
-          className="w-full min-h-[52px] flex items-center justify-center gap-2.5 bg-saffron hover:bg-terracotta text-white font-semibold text-base rounded-2xl shadow-warm hover:shadow-warm-lg transition-all duration-200"
-        >
-          <Plus size={20} />
-          {t('recordVisit')}
-        </motion.button>
-
-        {/* ── Form slide-down ───────────────────────────────────────────────── */}
+        {/* ── Form modal ─────────────────────────────────────────────────────── */}
         <AnimatePresence>
           {showForm && (
             <motion.div
               key="form-panel"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-              className="overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeForm();
+              }}
             >
-              <div className="bg-ivory rounded-3xl shadow-warm-lg border-2 border-blush overflow-hidden">
+              <div
+                className="bg-ivory rounded-2xl shadow-warm-lg border-2 border-blush overflow-hidden w-full max-w-lg max-h-[85vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
 
                 {/* Form header */}
                 <div className="flex items-center justify-between px-6 py-4 bg-blush/40 border-b border-blush">
@@ -1428,47 +2069,6 @@ export default function AshaDashboard() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* ── High Priority Alerts ───────────────────────────────────────────── */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={15} className="text-rose-critical" />
-            <h2 className="font-serif text-lg text-charcoal">{t('highPriorityAlerts')}</h2>
-            {alerts.length > 0 && (
-              <span className="ml-auto bg-rose-critical/10 text-rose-critical text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {alerts.length}
-              </span>
-            )}
-          </div>
-
-          {alerts.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-sage/10 border border-sage/30 rounded-2xl p-7 text-center"
-            >
-              <p className="text-3xl mb-2">🎉</p>
-              <p className="font-serif text-lg text-sage font-semibold">{t('noAlerts')}</p>
-              <p className="text-sm text-muted mt-1">{t('noAlertsDesc')}</p>
-            </motion.div>
-          ) : (
-            <div className="space-y-3">
-              {alerts.map(p => <AlertCard key={p.id} patient={p} lang={lang} />)}
-            </div>
-          )}
-        </section>
-
-        {/* ── All Patients ────────────────────────────────────────────────────── */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={15} className="text-saffron" />
-            <h2 className="font-serif text-lg text-charcoal">{t('allPatients')}</h2>
-            <span className="ml-auto text-xs text-muted">{patients.length} {t('total')}</span>
-          </div>
-          <div className="space-y-2.5">
-            {patients.map(p => <PatientCard key={p.id} patient={p} />)}
-          </div>
-        </section>
 
         <div className="h-8" />
       </div>

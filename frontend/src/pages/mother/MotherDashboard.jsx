@@ -249,18 +249,20 @@ export default function MotherDashboard() {
 
       {/* Two-column desktop layout */}
       <div className="relative max-w-6xl mx-auto px-4 py-6">
+
+        {/* Greeting */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <h1 className="font-serif text-3xl text-charcoal">
+            {lang === 'hi' ? 'नमस्ते बेटी 🙏' : 'Hello, dear 🙏'}
+          </h1>
+          <p className="text-sm text-muted mt-1">{patient.name}</p>
+        </motion.div>
+
+        {/* Top row: Left (Pregnancy + Health) | Right (Chatbot) */}
         <div className="flex flex-col lg:flex-row gap-6">
 
-          {/* ── Left Column: Progress + Health + Tips ────────────────────────── */}
-          <div className="flex-1 lg:w-[60%] space-y-6">
-
-            {/* Greeting */}
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-              <h1 className="font-serif text-3xl text-charcoal">
-                {lang === 'hi' ? 'नमस्ते बेटी 🙏' : 'Hello, dear 🙏'}
-              </h1>
-              <p className="text-sm text-muted mt-1">{patient.name}</p>
-            </motion.div>
+          {/* ── Left Column: Progress + Health ───────────────────────────────── */}
+          <div className="flex-1 lg:w-[55%] space-y-6">
 
             {/* Pregnancy Progress */}
             <motion.div
@@ -306,57 +308,10 @@ export default function MotherDashboard() {
                 ))}
               </div>
             </motion.div>
-
-            {/* Weekly Tips */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <Leaf size={15} className="text-sage" />
-                <h2 className="font-serif text-xl text-charcoal">
-                  {lang === 'hi' ? 'इस हफ्ते का सुझाव' : "This Week's Tips"}
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {TIPS.map(({ icon: Icon, iconColor, bg, border, hi, en }, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + i * 0.1 }}
-                    className={`${bg} ${border} border rounded-2xl p-4 flex items-start gap-3`}
-                  >
-                    <div className={`w-9 h-9 rounded-xl ${bg} ${border} border flex items-center justify-center flex-shrink-0`}>
-                      <Icon size={17} className={iconColor} />
-                    </div>
-                    <p className="text-sm text-charcoal leading-relaxed">
-                      {lang === 'hi' ? hi : en}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Heart note — only on mobile (hidden on desktop, chat takes right col) */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="text-center py-4 lg:block"
-            >
-              <Heart size={18} className="text-terracotta mx-auto mb-2" fill="currentColor" />
-              <p className="text-xs text-muted">
-                {lang === 'hi'
-                  ? 'मातृत्व AI — हर माँ के लिए, प्यार से बनाया गया'
-                  : 'मातृत्व AI — Built with care for every mother'}
-              </p>
-            </motion.div>
           </div>
 
           {/* ── Right Column: Amma Chat (sticky on desktop) ──────────────────── */}
-          <div className="lg:w-[40%] lg:min-w-[360px]">
+          <div className="lg:w-[45%] lg:min-w-[360px]">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -493,6 +448,55 @@ export default function MotherDashboard() {
           </div>
 
         </div>
+
+        {/* ── Full Width: Weekly Tips ──────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="mt-6"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Leaf size={15} className="text-sage" />
+            <h2 className="font-serif text-xl text-charcoal">
+              {lang === 'hi' ? 'इस हफ्ते का सुझाव' : "This Week's Tips"}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {TIPS.map(({ icon: Icon, iconColor, bg, border, hi, en }, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + i * 0.1 }}
+                className={`${bg} ${border} border rounded-2xl p-4 flex items-start gap-3`}
+              >
+                <div className={`w-9 h-9 rounded-xl ${bg} ${border} border flex items-center justify-center flex-shrink-0`}>
+                  <Icon size={17} className={iconColor} />
+                </div>
+                <p className="text-sm text-charcoal leading-relaxed">
+                  {lang === 'hi' ? hi : en}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Heart note */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center py-6"
+        >
+          <Heart size={18} className="text-terracotta mx-auto mb-2" fill="currentColor" />
+          <p className="text-xs text-muted">
+            {lang === 'hi'
+              ? 'मातृत्व AI — हर माँ के लिए, प्यार से बनाया गया'
+              : 'मातृत्व AI — Built with care for every mother'}
+          </p>
+        </motion.div>
+
       </div>
 
       <div className="h-6" />

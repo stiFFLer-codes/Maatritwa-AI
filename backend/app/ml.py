@@ -29,6 +29,18 @@ LABEL_MAP = {
     "severe pre-eclampsia": "high",
 }
 
+ECLAMPSIA_FEATURE_ORDER = [
+    "avg_systolic_bp",
+    "avg_diastolic_bp",
+    "bp_rise_sys",
+    "bp_rise_dia",
+    "symptom_headache_count",
+    "symptom_blurred_vision_count",
+    "symptom_swelling_count",
+    "symptom_seizures_count",
+    "severe_bp_visits",
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -243,3 +255,149 @@ def _rule_based_prediction(feature_values: dict[str, float], flags: list[str]) -
         return "medium", 0.6, flags
 
     return "low", 0.25, flags
+
+
+class EclampsiaPredictor:
+    def __init__(
+        self,
+        model: Any | None,
+        model_version: str,
+        using_fallback: bool,
+        *,
+        model_features: list[str] | None = None,
+    ):
+        self.model = model
+        self.model_version = model_version
+        self.using_fallback = using_fallback
+        self.model_features = model_features
+
+    @classmethod
+    def from_env(cls) -> "EclampsiaPredictor":
+        project_root = Path(__file__).resolve().parents[2]
+        default_model_path = project_root / "backend" / "app" / "eclampsia_model.pkl"
+        model_path = Path(os.getenv("ECLAMPSIA_MODEL_PATH", str(default_model_path)))
+        model_version = os.getenv("ECLAMPSIA_MODEL_VERSION", "eclampsia-v1")
+
+        if not model_path.exists():
+            logger.warning(
+                "Eclampsia model file not found at %s. Falling back to symptom rule-based logic.",
+                model_path,
+            )
+            return cls(model=None, model_version=f"{model_version}-fallback", using_fallback=True)
+
+        try:
+            with model_path.open("rb") as model_file:
+                loaded = pickle.load(model_file)
+                model_features = None
+                if isinstance(loaded, dict):
+                    model = loaded.get("model")
+                    model_features = loaded.get("features") or loaded.get("feature_names")
+                else:
+                    model = loaded
+
+                if model is None:
+                    raise ValueError("Loaded artifact does not contain a valid model object.")
+
+            logger.info("Eclampsia model loaded from %s", model_path)
+            return cls(
+                model=model,
+                model_version=model_version,
+                using_fallback=False,
+                model_features=model_features,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to load eclampsia model from %s (%s). Falling back to symptom rule-based logic.",
+                model_path,
+                exc,
+            )
+            return cls(model=None, model_version=f"{model_version}-fallback", using_fallback=True)
+
+    def predict(self, feature_values: dict[str, float]) -> tuple[str, float, list[str]]:
+        flags = _compute_eclampsia_flags(feature_values)
+
+        if self.model is None:
+            return _rule_based_eclampsia_prediction(feature_values, flags)
+
+        vector = [self._build_feature_vector(feature_values)]
+        raw = self.model.predict(vector)[0]
+        risk_level = _normalize_eclampsia_label(raw)
+
+        risk_score = 0.5
+        if hasattr(self.model, "predict_proba"):
+            probabilities = self.model.predict_proba(vector)[0]
+            classes = getattr(self.model, "classes_", None)
+            if classes is not None:
+                idx = None
+                for class_index, class_label in enumerate(classes):
+                    if _normalize_eclampsia_label(class_label) == risk_level:
+                        idx = class_index
+                        break
+                risk_score = float(probabilities[idx]) if idx is not None else float(max(probabilities))
+            else:
+                risk_score = float(max(probabilities))
+
+        risk_score = max(0.0, min(1.0, risk_score))
+        return risk_level, risk_score, flags
+
+    def _build_feature_vector(self, feature_values: dict[str, float]) -> list[float]:
+        feature_order = self.model_features or ECLAMPSIA_FEATURE_ORDER
+        return [float(feature_values.get(name, 0.0)) for name in feature_order]
+
+
+def _normalize_eclampsia_label(raw: Any) -> str:
+    key = str(raw).strip().lower()
+    mapping = {
+        "0": "low",
+        "1": "moderate",
+        "2": "high",
+        "3": "critical",
+        "low": "low",
+        "moderate": "moderate",
+        "medium": "moderate",
+        "high": "high",
+        "critical": "critical",
+        "eclampsia": "critical",
+    }
+    return mapping.get(key, "moderate")
+
+
+def _compute_eclampsia_flags(feature_values: dict[str, float]) -> list[str]:
+    flags: list[str] = []
+
+    if feature_values.get("symptom_seizures_count", 0) > 0:
+        flags.append("seizure_history")
+    if feature_values.get("severe_bp_visits", 0) >= 2:
+        flags.append("repeated_severe_bp")
+    if feature_values.get("symptom_blurred_vision_count", 0) >= 2:
+        flags.append("recurrent_visual_disturbance")
+    if feature_values.get("symptom_headache_count", 0) >= 2:
+        flags.append("recurrent_headache")
+    if feature_values.get("bp_rise_sys", 0) >= 20 or feature_values.get("bp_rise_dia", 0) >= 15:
+        flags.append("bp_rising_trend")
+
+    return flags
+
+
+def _rule_based_eclampsia_prediction(
+    feature_values: dict[str, float],
+    flags: list[str],
+) -> tuple[str, float, list[str]]:
+    seizure_count = feature_values.get("symptom_seizures_count", 0)
+    severe_bp_visits = feature_values.get("severe_bp_visits", 0)
+    avg_sys = feature_values.get("avg_systolic_bp", 0)
+    avg_dia = feature_values.get("avg_diastolic_bp", 0)
+
+    if seizure_count >= 1:
+        return "critical", 0.95, flags
+
+    if severe_bp_visits >= 2 and (feature_values.get("symptom_headache_count", 0) >= 1 or feature_values.get("symptom_blurred_vision_count", 0) >= 1):
+        return "high", 0.82, flags
+
+    if avg_sys >= 150 or avg_dia >= 100:
+        return "high", 0.75, flags
+
+    if severe_bp_visits >= 1 or len(flags) >= 2:
+        return "moderate", 0.62, flags
+
+    return "low", 0.28, flags

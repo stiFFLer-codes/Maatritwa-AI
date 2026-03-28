@@ -9,27 +9,26 @@ export default function TopBar({ showBack = true, rightSlot = null }) {
 
   return (
     <div className="sticky top-0 z-40 bg-ivory/95 backdrop-blur-sm border-b border-blush shadow-soft">
-      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-        {/* Left — back button */}
-        {showBack ? (
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-1.5 text-muted hover:text-terracotta transition-colors min-w-[60px]"
-          >
-            <ArrowLeft size={16} />
-            <span className="text-sm font-medium">{t('back')}</span>
-          </button>
-        ) : (
-          <div className="min-w-[60px]" />
-        )}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="justify-self-start min-w-[96px]">
+          {showBack ? (
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 text-muted hover:text-terracotta transition-colors"
+            >
+              <ArrowLeft size={16} />
+              <span className="text-sm font-medium">{t('back')}</span>
+            </button>
+          ) : null}
+        </div>
 
-        {/* Center — brand */}
-        <span className="font-serif text-lg font-semibold text-charcoal tracking-tight">
+        <span className="font-serif text-lg font-semibold text-charcoal tracking-tight justify-self-center">
           मातृत्व AI
         </span>
 
-        {/* Right — language toggle or custom slot */}
-        {rightSlot ?? <LanguageToggle />}
+        <div className="justify-self-end min-w-[96px] flex justify-end">
+          {rightSlot ?? <LanguageToggle />}
+        </div>
       </div>
     </div>
   );
