@@ -26,6 +26,16 @@ dist-ssr
 __pycache__/
 *.pyc
 
+# ── Raw clinical data — NEVER COMMIT ──────────────────────────────────────────
+# Source spreadsheets carry unredacted patient names alongside diagnoses and
+# HIV status. Only the pseudonymised derivative (clinicalPatients.json, names
+# replaced by process_clinical_data.py) is safe to publish.
+*.xlsx
+*.xls
+*.csv
+backend/data/raw/
+!backend/data/synthetic/synthetic_asha_data.csv
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
