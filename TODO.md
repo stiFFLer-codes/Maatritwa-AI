@@ -1,1 +1,0 @@
-# ML Training Pipeline Fix\n\n✅ 1. Create TODO.md and confirm plan\n\n⏳ 2. Edit backend/ml/train_xgboost.py paths\n\n⏳ 3. Test run python train_xgboost.py\n\n⏳ 4. Verify frontend/src/data/ outputs\n\n⏳ 5. Complete task
