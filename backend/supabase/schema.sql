@@ -264,7 +264,27 @@ begin
 end;
 $$;
 
+-- Lab panel entered by the doctor after a referral arrives. Queried by
+-- backend/app/routers/doctor.py and read by migrations/004_create_views.sql.
+-- Column list matches ClinicalLabsInfo / PatientLabsUpsertRequest in that router.
+create table if not exists public.clinical_labs (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.patients(id) on delete cascade,
+  sgot numeric(8,2),
+  sgpt numeric(8,2),
+  platelet_count numeric(8,2),
+  serum_creatinine numeric(6,2),
+  proteinuria text,
+  edema text,
+  epigastric_pain boolean,
+  seizures boolean,
+  recorded_at timestamptz not null default now()
+);
+
 create index if not exists idx_users_role on public.users(role);
+
+create index if not exists idx_clinical_labs_patient_id_recorded_at
+  on public.clinical_labs(patient_id, recorded_at desc);
 
 create index if not exists idx_patients_asha_id on public.patients(asha_id);
 create index if not exists idx_patients_mother_id on public.patients(mother_id);
@@ -286,6 +306,7 @@ alter table public.patients enable row level security;
 alter table public.vitals enable row level security;
 alter table public.risk_assessments enable row level security;
 alter table public.referrals enable row level security;
+alter table public.clinical_labs enable row level security;
 alter table public.asha_profiles enable row level security;
 alter table public.mother_profiles enable row level security;
 alter table public.doctor_profiles enable row level security;
