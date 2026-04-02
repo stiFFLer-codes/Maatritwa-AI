@@ -1,3 +1,4 @@
+import os
 from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, status
@@ -9,6 +10,25 @@ from .db import get_supabase
 
 security = HTTPBearer(auto_error=False)
 
+# ── Development auth bypass ───────────────────────────────────────────────────
+# This project ships with real authentication OFF. Every request is served as a
+# fixed demo user for whichever role the endpoint asks for, so the dashboards can
+# be driven without a login flow. It was built this way for a demo deadline and
+# never reverted.
+#
+# DEV_AUTH=0 re-enables real Supabase token verification below. That path is
+# preserved but has not been exercised since March 2026 — treat it as untested.
+#
+# Do not deploy with DEV_AUTH on. It is an unauthenticated read/write API.
+DEV_AUTH = os.getenv("DEV_AUTH", "1") == "1"
+
+# Fixed UUIDs so seeded rows keep matching across restarts (see backend/seed_data.py).
+DEV_USER_IDS = {
+    "asha": "550e8400-e29b-41d4-a716-446655440000",
+    "mother": "550e8400-e29b-41d4-a716-446655440001",
+    "doctor": "550e8400-e29b-41d4-a716-446655440002",
+}
+
 
 class CurrentUser(BaseModel):
     id: str
@@ -19,11 +39,6 @@ class CurrentUser(BaseModel):
 
 
 def _decode_access_token(token: str, supabase: Client) -> dict[str, Any]:
-    # DISABLED: Auth removal for development
-    return {"sub": "mock_asha_id", "role": "asha"}  # Mock for now
-
-    # Original code fully disabled (no indentation issues)
-    """
     try:
         response = supabase.auth.get_user(token)
         user = getattr(response, "user", None)
@@ -51,7 +66,6 @@ def _decode_access_token(token: str, supabase: Client) -> dict[str, Any]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
         ) from exc
-    """
 
 
 def _extract_role(payload: dict[str, Any]) -> Optional[str]:
@@ -147,12 +161,33 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase),
 ) -> CurrentUser:
-    # DISABLED AUTH: Return mock ASHA user for development (uses valid UUID format)
-    return CurrentUser(id="550e8400-e29b-41d4-a716-446655440000", role="asha")
+    if DEV_AUTH:
+        return CurrentUser(id=DEV_USER_IDS["asha"], role="asha")
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing bearer token.",
+        )
+
+    payload = _decode_access_token(credentials.credentials, supabase)
+    row = _ensure_user_row(supabase, payload["sub"], payload)
+    return CurrentUser(**row)
 
 
 def require_role(required_role: str):
     def role_dependency(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        # With DEV_AUTH on there is no login, so get_current_user always returns the
+        # ASHA demo user. Hand back the demo user for whichever role was asked for
+        # instead — otherwise every mother and doctor endpoint 403s permanently.
+        if DEV_AUTH:
+            if required_role not in DEV_USER_IDS:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Unknown role '{required_role}'.",
+                )
+            return CurrentUser(id=DEV_USER_IDS[required_role], role=required_role)
+
         if current_user.role != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
