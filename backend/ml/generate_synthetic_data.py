@@ -12,7 +12,13 @@ Target: diagnosis (Normal / Mild Pre-Eclampsia / Severe Pre-Eclampsia)
 Usage: python scripts/generate_synthetic_asha.py
 """
 
-import numpy as np`r`nimport pandas as pd`r`nimport sys`r`nfrom pathlib import Path`r`n`r`nif hasattr(sys.stdout, "reconfigure"):`r`n    sys.stdout.reconfigure(encoding="utf-8")
+import numpy as np
+import pandas as pd
+import sys
+from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 np.random.seed(42)
 

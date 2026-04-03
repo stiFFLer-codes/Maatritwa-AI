@@ -72,8 +72,15 @@ train_df = pd.read_csv(str(SYNTHETIC_DATA_PATH))
 X_train = train_df[FEATURES].values
 
 le = LabelEncoder()
-le.fit(CLASS_ORDER)  # Fix class order: 0=Mild, 1=Normal, 2=Severe
+le.fit(CLASS_ORDER)
 y_train = le.transform(train_df['diagnosis'])
+
+# LabelEncoder SORTS its classes, so the encoded order is alphabetical:
+#   0 = Mild Pre-Eclampsia, 1 = Normal, 2 = Severe Pre-Eclampsia
+# which is NOT the order CLASS_ORDER is written in. Every sklearn reporting call
+# below maps target_names positionally onto 0,1,2 — passing CLASS_ORDER there
+# silently swaps the Normal and Mild Pre-Eclampsia rows. Always report with this.
+CLASS_LABELS = list(le.classes_)
 
 print(f"  Loaded {len(train_df)} synthetic patients")
 print(f"  Features: {len(FEATURES)}")
@@ -209,22 +216,22 @@ print(f"  ║  Data leakage: ZERO                              ║")
 print(f"  ╚══════════════════════════════════════════════════╝")
 
 print(f"\n  Classification Report:")
-print(classification_report(y_test, y_pred, target_names=CLASS_ORDER, digits=3))
+print(classification_report(y_test, y_pred, target_names=CLASS_LABELS, digits=3))
 
 cm = confusion_matrix(y_test, y_pred)
 print(f"  Confusion Matrix:")
 print(f"  {'':>25} Predicted")
-print(f"  {'':>15} {'Normal':>10} {'Mild PE':>10} {'Severe PE':>10}")
-for i, cls in enumerate(CLASS_ORDER):
+print(f"  {'':>15} {'Mild PE':>10} {'Normal':>10} {'Severe PE':>10}")
+for i, cls in enumerate(CLASS_LABELS):
     print(f"  Actual {cls:>15} {cm[i][0]:>10} {cm[i][1]:>10} {cm[i][2]:>10}")
 
 # Per-class metrics
 precision, recall, f1, support = precision_recall_fscore_support(
-    y_test, y_pred, labels=range(len(CLASS_ORDER)), zero_division=0
+    y_test, y_pred, labels=range(len(CLASS_LABELS)), zero_division=0
 )
 
 # Critical safety metric: Severe PE recall (must be HIGH — missing severe PE kills)
-severe_idx = CLASS_ORDER.index('Severe Pre-Eclampsia')
+severe_idx = CLASS_LABELS.index('Severe Pre-Eclampsia')
 severe_recall = recall[severe_idx]
 print(f"\n  ⚠ SAFETY METRIC — Severe PE Recall: {severe_recall*100:.1f}%")
 if severe_recall >= 0.90:
@@ -505,7 +512,7 @@ print(f"  ✅ Saved JavaScript model: {JS_OUTPUT_PATH}")
 
 print(f"\n[6/6] Updating {METRICS_OUTPUT_PATH}...")
 
-report = classification_report(y_test, y_pred, target_names=CLASS_ORDER, output_dict=True)
+report = classification_report(y_test, y_pred, target_names=CLASS_LABELS, output_dict=True)
 
 metrics = {
     'algorithm': 'Gradient Boosting (sklearn)',
@@ -527,7 +534,7 @@ metrics = {
     'methodology': 'Train on synthetic → Validate on real → Zero data leakage',
     'perClass': {},
     'confusionMatrix': cm.tolist(),
-    'confusionMatrixLabels': CLASS_ORDER,
+    'confusionMatrixLabels': CLASS_LABELS,
     'severePERecall': round(float(severe_recall * 100), 1),
     'learnedThresholds': {
         'mildBPThreshold': int(threshold_sbp_mild) if threshold_sbp_mild else None,
@@ -538,7 +545,7 @@ metrics = {
     'guidelines': 'WHO 2019 & FOGSI clinical guidelines',
 }
 
-for cls in CLASS_ORDER:
+for cls in CLASS_LABELS:
     if cls in report:
         metrics['perClass'][cls] = {
             'precision': round(report[cls]['precision'], 3),
