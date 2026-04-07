@@ -1,113 +1,173 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS Custom Properties ───────────────────────────────────────────────── */
+/* Fonts are loaded in index.html so the browser can start fetching them before
+   the CSS parses. IBM Plex Sans + Sans Devanagari + Mono. */
+
+/* ── Tokens ──────────────────────────────────────────────────────────────────
+   Mirrors tailwind.config.js. Chroma is a clinical signal: warm = the
+   patient's state, cool = something you can act on, ink = everything else. */
 :root {
-  --saffron:       #E8863A;
-  --terracotta:    #C75B39;
-  --cream:         #FFF8F0;
-  --sage:          #7BA68A;
-  --blush:         #F2DDD0;
-  --charcoal:      #2D2A26;
-  --muted:         #8A8580;
-  --amber-alert:   #D4932A;
-  --rose-critical: #C43B3B;
-  --ivory:         #FFFCF7;
+  --paper:      #F6F5F2;
+  --card:       #FFFFFF;
+  --ink:        #191A17;
+  --ink-soft:   #5C5E58;
+  --rule:       #E4E2DB;
+  --rule-strong:#C9C6BC;
 
-  --shadow-warm:    0 4px 24px rgba(199, 91, 57, 0.10);
-  --shadow-warm-lg: 0 10px 40px rgba(199, 91, 57, 0.14);
+  --action:       #1E3A5F;
+  --action-hover: #162C48;
+  --action-tint:  #E8ECF2;
+
+  --risk-safe:     #276749;
+  --risk-watch:    #8A5D0B;
+  --risk-high:     #AE4515;
+  --risk-critical: #8F1D1D;
+
+  --tint-safe:     #E7EFEA;
+  --tint-watch:    #F5EDDC;
+  --tint-high:     #F7E9E2;
+  --tint-critical: #F5E4E4;
+
+  --shadow-warm:    0 1px 2px rgba(25, 26, 23, 0.05);
+  --shadow-warm-lg: 0 4px 14px rgba(25, 26, 23, 0.08);
+
+  /* Legacy names still referenced in a few inline styles. */
+  --saffron: var(--action);
+  --terracotta: var(--risk-high);
+  --cream: var(--paper);
+  --sage: var(--risk-safe);
+  --blush: var(--rule);
+  --charcoal: var(--ink);
+  --muted: var(--ink-soft);
+  --amber-alert: var(--risk-watch);
+  --rose-critical: var(--risk-critical);
+  --ivory: var(--card);
 }
 
-/* ── Base ────────────────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background-color: var(--cream);
-  color: var(--charcoal);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Subtle warm noise texture */
-  background-image:
-    radial-gradient(circle, rgba(232, 134, 58, 0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
+  text-rendering: optimizeLegibility;
 }
 
-/* ── Typography ─────────────────────────────────────────────────────────── */
-.font-display,
-h1, h2 {
-  font-family: 'Playfair Display', Georgia, serif;
+/* ── Typography ──────────────────────────────────────────────────────────────
+   Headings are set in the same family as body text and separated by weight and
+   tracking rather than by a contrasting display face. A triage screen read at
+   arm's length in daylight wants one voice, not two. */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
+
+/* Devanagari sits optically lower and needs a little more room than Latin at
+   the same nominal size. */
+:lang(hi) h1, :lang(hi) h2 { line-height: 1.3; }
+
+/* Every clinical number in the product: blood pressure, haemoglobin, gestation
+   week, score, patient id. Tabular figures so columns of them line up. */
+.tnum {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Small structural labels — section eyebrows, table headers, field names. */
+.label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ── Focus ───────────────────────────────────────────────────────────────────
+   Visible on keyboard, absent on mouse. Never removed. */
+:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--action) !important;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.16);
+}
+
+/* ── Rules ───────────────────────────────────────────────────────────────────
+   The risk spine: a solid bar down the leading edge of a record, the way the
+   Mother and Child Protection card these workers already carry is banded. */
+.spine {
+  position: relative;
+  padding-left: 1rem;
+}
+.spine::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.125rem;
+  bottom: 0.125rem;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+.spine-safe::before     { background: var(--risk-safe); }
+.spine-moderate::before { background: var(--risk-watch); }
+.spine-high::before     { background: var(--risk-high); }
+.spine-critical::before { background: var(--risk-critical); }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar        { width: 5px; }
-::-webkit-scrollbar-track  { background: var(--cream); }
-::-webkit-scrollbar-thumb  { background: var(--blush); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--saffron); }
+::-webkit-scrollbar        { width: 10px; height: 10px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--rule-strong); border-radius: 6px; border: 3px solid var(--paper); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
 
-/* ── Critical pulsing border ────────────────────────────────────────────── */
+/* ── Motion ──────────────────────────────────────────────────────────────── */
 @keyframes pulse-border {
-  0%, 100% {
-    border-color: var(--rose-critical);
-    box-shadow: 0 0 0 0 rgba(196, 59, 59, 0.4);
-  }
-  50% {
-    border-color: #ff7070;
-    box-shadow: 0 0 0 6px rgba(196, 59, 59, 0);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(143, 29, 29, 0.28); }
+  50%      { box-shadow: 0 0 0 5px rgba(143, 29, 29, 0); }
 }
+.animate-pulse-border { animation: pulse-border 2s ease-in-out infinite; }
 
-.animate-pulse-border {
-  animation: pulse-border 1.5s ease-in-out infinite;
-}
-
-/* ── Dot pulse (live indicator) ─────────────────────────────────────────── */
 @keyframes pulse-dot {
-  0%, 100% { transform: scale(1);   opacity: 1;   }
-  50%       { transform: scale(1.7); opacity: 0.4; }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
 }
+.animate-pulse-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
 
-.animate-pulse-dot {
-  animation: pulse-dot 1.2s ease-in-out infinite;
-}
-
-/* ── Voice mic listening ring ────────────────────────────────────────────── */
 @keyframes mic-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(199, 91, 57, 0.5); }
-  70%  { box-shadow: 0 0 0 14px rgba(199, 91, 57, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(199, 91, 57, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(30, 58, 95, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(30, 58, 95, 0); }
 }
+.animate-mic-ring { animation: mic-ring 1.4s ease-out infinite; }
 
-.animate-mic-ring {
-  animation: mic-ring 1.2s ease-out infinite;
-}
+/* The old float animation is retired; the token now resolves to `none`. */
+.animate-float { animation: none; }
 
-/* ── Float ───────────────────────────────────────────────────────────────── */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-10px); }
-}
-
-.animate-float { animation: float 3.5s ease-in-out infinite; }
-
-/* ── Input focus ring ────────────────────────────────────────────────────── */
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--saffron) !important;
-  box-shadow: 0 0 0 3px rgba(232, 134, 58, 0.15);
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── Number input — hide native arrows ──────────────────────────────────── */
@@ -118,17 +178,16 @@ input[type='number']::-webkit-inner-spin-button {
 }
 input[type='number'] { -moz-appearance: textfield; }
 
-/* ── Chat bubble tail ────────────────────────────────────────────────────── */
+/* ── Chat bubble tails ───────────────────────────────────────────────────── */
 .bubble-amma::before {
   content: '';
   position: absolute;
   bottom: -6px;
   left: 16px;
-  width: 0;
-  height: 0;
+  width: 0; height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-top: 8px solid #c8dfd0;
+  border-top: 8px solid var(--card);
 }
 
 .bubble-user::before {
@@ -136,9 +195,8 @@ input[type='number'] { -moz-appearance: textfield; }
   position: absolute;
   bottom: -6px;
   right: 16px;
-  width: 0;
-  height: 0;
+  width: 0; height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-top: 8px solid #fde5ce;
+  border-top: 8px solid var(--action-tint);
 }
