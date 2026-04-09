@@ -1,10 +1,12 @@
 import { useLanguage } from '../../i18n/LanguageContext';
 
+// The four levels are the only place saturated colour appears in the product.
+// Each pairing below clears WCAG AA on its own tint.
 const CONFIG = {
-  low:      { bg: 'bg-sage/15',          text: 'text-sage',          dot: 'bg-sage',          border: 'border-sage/30'          },
-  moderate: { bg: 'bg-amber-alert/10',   text: 'text-amber-alert',   dot: 'bg-amber-alert',   border: 'border-amber-alert/30'   },
-  high:     { bg: 'bg-terracotta/10',    text: 'text-terracotta',    dot: 'bg-terracotta',    border: 'border-terracotta/30'    },
-  critical: { bg: 'bg-rose-critical/10', text: 'text-rose-critical', dot: 'bg-rose-critical', border: 'border-rose-critical/30' },
+  low:      { bg: 'bg-risk-tint-safe',     text: 'text-risk-safe',     dot: 'bg-risk-safe'     },
+  moderate: { bg: 'bg-risk-tint-watch',    text: 'text-risk-watch',    dot: 'bg-risk-watch'    },
+  high:     { bg: 'bg-risk-tint-high',     text: 'text-risk-high',     dot: 'bg-risk-high'     },
+  critical: { bg: 'bg-risk-tint-critical', text: 'text-risk-critical', dot: 'bg-risk-critical' },
 };
 
 /**
@@ -16,24 +18,19 @@ export default function RiskBadge({ level, size = 'sm', showDot = true }) {
   const label = t(`riskLevels.${level}`);
 
   const sizes = {
-    sm: 'text-xs px-2.5 py-0.5 gap-1.5',
-    md: 'text-sm px-3.5 py-1 gap-2',
+    sm: 'text-[11px] px-2 py-0.5 gap-1.5',
+    md: 'text-[13px] px-2.5 py-1 gap-2',
   };
 
   return (
     <span
-      className={`
-        inline-flex items-center rounded-full border font-semibold
-        ${cfg.bg} ${cfg.text} ${cfg.border} ${sizes[size]}
-      `}
+      className={`inline-flex items-center rounded font-semibold ${cfg.bg} ${cfg.text} ${sizes[size]}`}
     >
       {showDot && (
         <span
           className={`
-            rounded-full flex-shrink-0
-            ${cfg.dot}
+            h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}
             ${level === 'critical' ? 'animate-pulse-dot' : ''}
-            ${size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2'}
           `}
         />
       )}
