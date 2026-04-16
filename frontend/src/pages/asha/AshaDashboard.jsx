@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, AlertTriangle, Calendar, Plus, X, Mic, MicOff,
@@ -9,6 +9,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { predictWithModel } from '../../data/decisionTreeRules';
+import { apiFetch } from '../../services/api';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
@@ -136,7 +137,6 @@ function calculateRisk(patient) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const TODAY = new Date('2026-03-24');
-const API_BASE_URL = 'http://localhost:8000';
 
 const RISK_MAP = {
   low: 'low',
@@ -195,7 +195,13 @@ function fmt(date) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-const RISK_POS = { low: 12, moderate: 40, high: 68, critical: 88 };
+const RISK_LADDER = ['low', 'moderate', 'high', 'critical'];
+const RISK_FILL = {
+  low: 'bg-risk-safe', moderate: 'bg-risk-watch', high: 'bg-risk-high', critical: 'bg-risk-critical',
+};
+const RISK_TEXT = {
+  low: 'text-risk-safe', moderate: 'text-risk-watch', high: 'text-risk-high', critical: 'text-risk-critical',
+};
 
 const RISK_STYLE = {
   low:      { bg: 'bg-sage/10',          border: 'border-sage/30',          text: 'text-sage',          actionBg: 'bg-sage/10',          badgeBg: 'bg-sage text-white'          },
@@ -243,7 +249,7 @@ function NumberInput({ label, hint, name, value, onChange, min = 0, max = 999, s
   return (
     <div>
       <label className="block text-xs font-medium text-muted mb-1">{label}{hint && <span className="text-muted/60 ml-1">({hint})</span>}</label>
-      <div className="flex items-center border-2 border-blush rounded-xl overflow-hidden bg-ivory focus-within:border-saffron transition-colors">
+      <div className="flex items-center border border-ink-strong rounded-xl overflow-hidden bg-ivory focus-within:border-saffron transition-colors">
         <button type="button" onClick={() => adjust(-step)}
           className="w-11 h-12 flex items-center justify-center text-terracotta hover:bg-blush transition-colors flex-shrink-0 text-lg font-bold">
           <Minus size={16} />
@@ -305,39 +311,31 @@ function PatientCard({
     ? `${patient.systolicBP}/${patient.diastolicBP}`
     : '--/--';
   const showRefer = patient.riskLevel === 'critical' || patient.riskLevel === 'high' || patient.riskLevel === 'elevated';
-  const accentClass = patient.riskLevel === 'critical'
-    ? 'border-l-4 border-l-red-400'
-    : (patient.riskLevel === 'high' || patient.riskLevel === 'elevated')
-      ? 'border-l-4 border-l-amber-400'
-      : '';
+  const spineClass = {
+    critical: 'spine-critical',
+    high: 'spine-high',
+    elevated: 'spine-high',
+    moderate: 'spine-moderate',
+  }[patient.riskLevel] || 'spine-safe';
 
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-ivory rounded-2xl px-5 py-4 shadow-soft border border-blush hover:shadow-warm transition-all duration-200 group ${accentClass}`}
+      className={`spine ${spineClass} bg-card rounded-lg pr-4 py-4 border border-ink-rule hover:border-ink-strong transition-colors duration-200 group`}
     >
       <div className="flex items-center gap-3">
-        {/* Risk dot */}
-        <div className="flex-shrink-0">
-          <div className={`w-3 h-3 rounded-full ${
-            patient.riskLevel === 'critical' ? 'bg-rose-critical animate-pulse-dot' :
-            patient.riskLevel === 'high'     ? 'bg-terracotta' :
-            patient.riskLevel === 'moderate' ? 'bg-amber-alert' : 'bg-sage'
-          }`} />
-        </div>
-
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-serif text-base font-semibold text-charcoal truncate group-hover:text-terracotta transition-colors">
+          <p className="text-[15px] font-semibold text-ink truncate">
             {patient.name}
           </p>
-          <p className="text-xs text-muted mt-0.5 truncate">{patient.village || '--'}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted">
-            <span className="flex items-center gap-1"><User size={10} /> {patient.age} yrs</span>
-            <span className="flex items-center gap-1"><Baby size={10} /> Wk {patient.gestationalWeeks}</span>
-            <span className="flex items-center gap-1"><Activity size={10} /> {bpText}</span>
+          <p className="text-xs text-ink-soft mt-0.5 truncate">{patient.village || '--'}</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-ink-soft">
+            <span className="flex items-center gap-1"><User size={10} /> <span className="tnum">{patient.age}</span> yrs</span>
+            <span className="flex items-center gap-1"><Baby size={10} /> Wk <span className="tnum">{patient.gestationalWeeks}</span></span>
+            <span className="flex items-center gap-1"><Activity size={10} /> <span className="tnum">{bpText}</span></span>
             {overdue && (
               <span className="flex items-center gap-1 text-rose-critical font-medium">
                 <Clock size={10} /> Overdue
@@ -374,9 +372,9 @@ function PatientCard({
             type="button"
             onClick={onRefer}
             disabled={referralLoading}
-            className="h-8 px-3 rounded-lg border border-terracotta/50 text-terracotta text-xs font-semibold hover:bg-terracotta/10 disabled:opacity-60 transition-colors"
+            className="h-9 px-3 rounded-md border border-action/40 text-action text-xs font-semibold hover:bg-action-tint disabled:opacity-60 transition-colors cursor-pointer"
           >
-            {referralLoading ? 'Referring...' : 'Refer to Doctor'}
+            {referralLoading ? 'Referring…' : 'Refer to doctor'}
           </button>
         </div>
       )}
@@ -417,28 +415,28 @@ function PatientCard({
                         title: 'text-rose-critical',
                         chip: 'bg-rose-critical text-white',
                         cta: 'Refer to Doctor Now',
-                        icon: '🔴',
+                        dot: 'bg-risk-critical',
                       },
                       high: {
                         wrap: 'bg-terracotta/10 border-terracotta/40',
                         title: 'text-terracotta',
                         chip: 'bg-terracotta text-white',
                         cta: 'Urgent Doctor Review',
-                        icon: '🟠',
+                        dot: 'bg-risk-high',
                       },
                       moderate: {
                         wrap: 'bg-amber-alert/10 border-amber-alert/40',
                         title: 'text-amber-alert',
                         chip: 'bg-amber-alert text-white',
                         cta: 'Schedule Doctor Follow-up',
-                        icon: '🟡',
+                        dot: 'bg-risk-watch',
                       },
                       low: {
                         wrap: 'bg-sage/10 border-sage/40',
                         title: 'text-sage',
                         chip: 'bg-sage text-white',
                         cta: 'Continue Routine Monitoring',
-                        icon: '🟢',
+                        dot: 'bg-risk-safe',
                       },
                     };
                     const currentTheme = riskTheme[riskLevel] || riskTheme.low;
@@ -484,7 +482,7 @@ function PatientCard({
                             type="button"
                             onClick={onPredictEclampsia}
                             disabled={eclampsiaLoading}
-                            className="w-full h-11 rounded-xl bg-saffron text-white font-semibold text-sm hover:bg-terracotta disabled:opacity-60 transition-colors"
+                            className="w-full h-11 rounded-xl bg-saffron text-white font-semibold text-sm hover:bg-action-hover disabled:opacity-60 transition-colors"
                           >
                             {eclampsiaLoading ? 'Running Eclampsia Prediction...' : 'Run Eclampsia Prediction'}
                           </button>
@@ -495,7 +493,8 @@ function PatientCard({
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <p className={`text-sm font-bold uppercase tracking-wide ${currentTheme.title}`}>
-                                  {currentTheme.icon} Eclampsia Risk: {riskLevel}
+                                  <span className={`mr-2 inline-block h-2 w-2 rounded-full align-middle ${currentTheme.dot}`} />
+                                  Eclampsia risk: {riskLevel}
                                 </p>
                                 <p className="text-xs text-charcoal mt-1">
                                   Score {Math.round((eclampsiaResult.risk_score || 0) * 100)}% · Based on {visitCount} visits
@@ -522,7 +521,7 @@ function PatientCard({
                                 type="button"
                                 onClick={onPredictEclampsia}
                                 disabled={eclampsiaLoading}
-                                className="text-xs font-semibold text-charcoal hover:text-terracotta transition-colors"
+                                className="text-xs font-semibold text-charcoal hover:text-action-hover transition-colors"
                               >
                                 Re-run →
                               </button>
@@ -657,15 +656,13 @@ export default function AshaDashboard() {
   const [referralLoadingById, setReferralLoadingById] = useState({});
   const [referralMessageById, setReferralMessageById] = useState({});
   const patientsSectionRef = useRef(null);
-  const alertsSectionRef = useRef(null);
-  const [activeSummaryFilter, setActiveSummaryFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
 
-  // Fetch patients from backend API
-  useEffect(() => {
+  // Fetch patients from backend API. Named so the error state can retry it.
+  const loadPatients = useCallback(() => {
     setLoadingPatients(true);
-    fetch(`${API_BASE_URL}/asha/patients`)
+    apiFetch(`/asha/patients`)
       .then(res => res.json())
       .then(data => {
         const normalized = (Array.isArray(data) ? data : []).map(normalizePatient);
@@ -678,11 +675,13 @@ export default function AshaDashboard() {
       })
       .catch(err => {
         console.error('Error fetching patients:', err);
-        setPatientsError('Failed to load patients. Please try again.');
+        setPatientsError('Could not load your register.');
         setPatients([]);
       })
       .finally(() => setLoadingPatients(false));
   }, []);
+
+  useEffect(() => { loadPatients(); }, [loadPatients]);
 
   const fetchPatientDetails = async (patientId) => {
     if (!patientId || patientDetails[patientId]) return;
@@ -691,7 +690,7 @@ export default function AshaDashboard() {
     setDetailsErrorById((prev) => ({ ...prev, [patientId]: '' }));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/asha/patients/${patientId}/details`);
+      const response = await apiFetch(`/asha/patients/${patientId}/details`);
       if (!response.ok) {
         throw new Error(`Failed to load patient details (HTTP ${response.status})`);
       }
@@ -743,7 +742,7 @@ export default function AshaDashboard() {
   const handlePredictEclampsia = async (patientId) => {
     setEclampsiaLoadingById((prev) => ({ ...prev, [patientId]: true }));
     try {
-      const response = await fetch(`${API_BASE_URL}/asha/patients/${patientId}/eclampsia-risk`);
+      const response = await apiFetch(`/asha/patients/${patientId}/eclampsia-risk`);
       if (!response.ok) {
         throw new Error(`Failed to predict (HTTP ${response.status})`);
       }
@@ -768,7 +767,7 @@ export default function AshaDashboard() {
     setReferralLoadingById((prev) => ({ ...prev, [patientId]: true }));
     setReferralMessageById((prev) => ({ ...prev, [patientId]: null }));
     try {
-      const response = await fetch(`${API_BASE_URL}/asha/referrals`, {
+      const response = await apiFetch(`/asha/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1017,7 +1016,7 @@ export default function AshaDashboard() {
     const symptomsString = visitForm.symptoms.length > 0 ? visitForm.symptoms.join(', ') : null;
 
     try {
-      const visitResp = await fetch(`${API_BASE_URL}/asha/patients/${visitForm.patientId}/visits`, {
+      const visitResp = await apiFetch(`/asha/patients/${visitForm.patientId}/visits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1177,7 +1176,7 @@ export default function AshaDashboard() {
 
     try {
       // ── Step 1: Create patient record ─────────────────────────────────────
-      const patientResp = await fetch(`${API_BASE_URL}/asha/patients`, {
+      const patientResp = await apiFetch(`/asha/patients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1198,7 +1197,7 @@ export default function AshaDashboard() {
 
       // ── Step 2: Submit vitals for the created patient ────────────────────
       const symptomsString = form.symptoms.length > 0 ? form.symptoms.join(', ') : null;
-      const vitalsResp = await fetch(`${API_BASE_URL}/asha/patients/${createdPatient.id}/vitals`, {
+      const vitalsResp = await apiFetch(`/asha/patients/${createdPatient.id}/vitals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1215,7 +1214,7 @@ export default function AshaDashboard() {
       }
       const createdVitals = await vitalsResp.json();
 
-      const predictResp = await fetch(`${API_BASE_URL}/asha/predict`, {
+      const predictResp = await apiFetch(`/asha/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1338,7 +1337,7 @@ export default function AshaDashboard() {
           className="pt-2"
         >
           <h1 className="font-serif text-3xl text-charcoal">
-            {t('ashaGreeting')} 🙏
+            {t('ashaGreeting')}
           </h1>
           <p className="text-sm text-muted mt-1">{todayStr}</p>
         </motion.div>
@@ -1351,7 +1350,7 @@ export default function AshaDashboard() {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder="मरीज़ खोजें..."
-                className="w-full h-11 px-4 rounded-xl border-2 border-blush bg-cream text-charcoal focus:outline-none focus:border-saffron transition-colors"
+                className="w-full h-11 px-4 rounded-xl border border-ink-strong bg-cream text-charcoal focus:outline-none focus:border-saffron transition-colors"
               />
               <div className="flex flex-wrap gap-2 mt-3">
                 {[
@@ -1383,7 +1382,38 @@ export default function AshaDashboard() {
                 <span className="ml-auto text-xs text-muted">{listPatients.length} {t('total')}</span>
               </div>
               <div className="space-y-2.5">
-                {listPatients.map((p) => (
+                {loadingPatients && (
+                  <div className="space-y-2.5" aria-live="polite" aria-busy="true">
+                    <span className="sr-only">Loading your register…</span>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="rounded-lg border border-ink-rule bg-card px-4 py-4">
+                        <div className="h-3.5 w-2/5 rounded bg-ink-rule" />
+                        <div className="mt-2.5 h-2.5 w-1/4 rounded bg-ink-rule" />
+                        <div className="mt-3 h-2.5 w-3/5 rounded bg-ink-rule" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!loadingPatients && patientsError && (
+                  <div className="rounded-lg border border-ink-strong bg-card px-4 py-5" role="alert">
+                    <p className="text-sm font-medium text-ink">{patientsError}</p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                      {lang === 'hi'
+                        ? 'नेटवर्क जाँचें और दोबारा कोशिश करें।'
+                        : 'Check the connection and try again.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={loadPatients}
+                      className="mt-3 h-9 cursor-pointer rounded-md border border-action/40 px-3 text-xs font-semibold text-action transition-colors hover:bg-action-tint"
+                    >
+                      {lang === 'hi' ? 'दोबारा कोशिश करें' : 'Try again'}
+                    </button>
+                  </div>
+                )}
+
+                {!loadingPatients && !patientsError && listPatients.map((p) => (
                   <PatientCard
                     key={p.id}
                     patient={p}
@@ -1400,9 +1430,16 @@ export default function AshaDashboard() {
                     referralMessage={referralMessageById[p.id]}
                   />
                 ))}
-                {listPatients.length === 0 && (
-                  <div className="rounded-xl border border-blush bg-ivory px-4 py-5 text-center">
-                    <p className="text-sm text-muted">{lang === 'hi' ? 'कोई मरीज़ नहीं मिला।' : 'No patients found.'}</p>
+                {!loadingPatients && !patientsError && listPatients.length === 0 && (
+                  <div className="rounded-lg border border-ink-rule bg-card px-4 py-6 text-center">
+                    <p className="text-sm text-ink">
+                      {lang === 'hi' ? 'कोई मरीज़ नहीं मिला।' : 'No patients match this filter.'}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                      {lang === 'hi'
+                        ? 'फ़िल्टर बदलें या नई विज़िट दर्ज करें।'
+                        : 'Clear the filter, or record a new visit.'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -1424,7 +1461,7 @@ export default function AshaDashboard() {
                   setForm(EMPTY_FORM);
                   setVisitForm(EMPTY_VISIT_FORM);
                 }}
-                className="w-full min-h-[52px] flex items-center justify-center gap-2.5 bg-saffron hover:bg-terracotta text-white font-semibold text-base rounded-2xl shadow-warm hover:shadow-warm-lg transition-all duration-200"
+                className="w-full min-h-[52px] flex items-center justify-center gap-2.5 bg-saffron hover:bg-action-hover text-white font-semibold text-base rounded-2xl shadow-warm hover:shadow-warm-lg transition-all duration-200"
               >
                 <Plus size={20} />
                 {t('recordVisit')}
@@ -1496,7 +1533,7 @@ export default function AshaDashboard() {
               }}
             >
               <div
-                className="bg-ivory rounded-2xl shadow-warm-lg border-2 border-blush overflow-hidden w-full max-w-lg max-h-[85vh] overflow-y-auto"
+                className="bg-ivory rounded-2xl shadow-warm-lg border border-ink-strong overflow-hidden w-full max-w-lg max-h-[85vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
 
@@ -1568,7 +1605,7 @@ export default function AshaDashboard() {
                             className={`w-16 h-16 rounded-full flex items-center justify-center shadow-warm transition-all duration-200 ${
                               isListening
                                 ? 'bg-terracotta animate-mic-ring scale-110'
-                                : 'bg-saffron hover:bg-terracotta'
+                                : 'bg-saffron hover:bg-action-hover'
                             }`}
                           >
                             {isListening ? <MicOff size={24} className="text-white" /> : <Mic size={24} className="text-white" />}
@@ -1590,7 +1627,7 @@ export default function AshaDashboard() {
                           <input
                             type="text" name="name" value={form.name} onChange={handleChange}
                             required placeholder={t('form.namePlaceholder')}
-                            className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                            className="w-full h-12 px-4 border border-ink-strong rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
                           />
                         </div>
 
@@ -1608,7 +1645,7 @@ export default function AshaDashboard() {
                           <input
                             type="text" name="village" value={form.village} onChange={handleChange}
                             required placeholder={t('form.villagePlaceholder')}
-                            className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                            className="w-full h-12 px-4 border border-ink-strong rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
                           />
                         </div>
 
@@ -1734,7 +1771,7 @@ export default function AshaDashboard() {
                                 value={visitForm.patientId}
                                 onChange={handleVisitChange}
                                 required
-                                className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                                className="w-full h-12 px-4 border border-ink-strong rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
                               >
                                 <option value="">{t('form.selectPatientPlaceholder')}</option>
                                 {patients.map((patient) => (
@@ -1753,7 +1790,7 @@ export default function AshaDashboard() {
                                 value={visitForm.visitDate}
                                 onChange={handleVisitChange}
                                 required
-                                className="w-full h-12 px-4 border-2 border-blush rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
+                                className="w-full h-12 px-4 border border-ink-strong rounded-xl bg-ivory text-charcoal text-base focus:outline-none focus:border-saffron transition-colors"
                               />
                             </div>
 
@@ -1831,7 +1868,7 @@ export default function AshaDashboard() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full min-h-[52px] bg-saffron hover:bg-terracotta disabled:opacity-60 text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
+                      className="w-full min-h-[52px] bg-saffron hover:bg-action-hover disabled:opacity-60 text-white font-semibold rounded-2xl shadow-warm transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? (
                         <>
@@ -1891,16 +1928,25 @@ export default function AshaDashboard() {
                                   </span>
                                 </div>
 
-                                {/* Gradient risk meter */}
-                                <div className="relative h-3 rounded-full overflow-visible mb-6"
-                                  style={{ background: 'linear-gradient(to right, #7BA68A, #D4932A, #C75B39, #C43B3B)' }}>
-                                  <motion.div
-                                    initial={{ left: '2%' }}
-                                    animate={{ left: `${RISK_POS[riskResult.level]}%` }}
-                                    transition={{ type: 'spring', stiffness: 70, damping: 15, delay: 0.4 }}
-                                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 bg-white rounded-full border-2 border-charcoal shadow-warm"
-                                    style={{ position: 'absolute' }}
-                                  />
+                                {/* Risk ladder. Four discrete rungs, not a gradient: the
+                                    model returns a category, and a smooth ramp with a
+                                    sliding thumb would imply a precision it does not have. */}
+                                <div
+                                  className="grid grid-cols-4 gap-1.5 mb-6"
+                                  role="img"
+                                  aria-label={`Risk level: ${t(`riskLevels.${riskResult.level}`)}`}
+                                >
+                                  {RISK_LADDER.map((lvl) => {
+                                    const on = lvl === riskResult.level;
+                                    return (
+                                      <div key={lvl}>
+                                        <div className={`h-2 rounded-sm ${on ? RISK_FILL[lvl] : 'bg-ink-rule'}`} />
+                                        <span className={`mt-1.5 block text-[10px] font-medium ${on ? RISK_TEXT[lvl] : 'text-ink-strong'}`}>
+                                          {t(`riskLevels.${lvl}`)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
 
                                 {/* Why section */}
@@ -1973,7 +2019,9 @@ export default function AshaDashboard() {
                                       <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
                                         agreed ? 'bg-sage/20 text-sage' : 'bg-amber-alert/20 text-amber-alert'
                                       }`}>
-                                        {agreed ? '✓ Cross-validated' : '⚠ Needs review'}
+                                        {agreed
+                                          ? <><CheckCircle2 size={13} /> Cross-validated</>
+                                          : <><AlertTriangle size={13} /> Needs review</>}
                                       </span>
                                     </div>
 
@@ -2053,7 +2101,7 @@ export default function AshaDashboard() {
                                 </button>
                                 <button
                                   onClick={() => { setForm(EMPTY_FORM); setRiskResult(null); setSubmitted(false); }}
-                                  className="flex-1 h-12 bg-saffron text-white font-semibold rounded-xl hover:bg-terracotta transition-colors text-sm"
+                                  className="flex-1 h-12 bg-saffron text-white font-semibold rounded-xl hover:bg-action-hover transition-colors text-sm"
                                 >
                                   {t('recordAnother')}
                                 </button>
