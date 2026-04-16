@@ -1,10 +1,16 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { translations } from './translations';
 
 const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
   const [lang, setLang] = useState('hi'); // Default Hindi for ASHA workers
+
+  // Keep the document language in sync. Screen readers switch voice on this,
+  // and the stylesheet uses :lang(hi) to give Devanagari headings more leading.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const t = (key) => {
     const keys = key.split('.');

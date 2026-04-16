@@ -5,6 +5,27 @@ export const translations = {
     back: 'Back',
     language: 'Language',
 
+    // Landing - rewritten Sept 2026. The old copy promised detection "4-6 weeks
+    // before symptoms appear", which the paper behind this repo does not support.
+    landing: {
+      eyebrow: 'Antenatal referral · rural Gujarat · archived prototype',
+      title: 'Between a home visit and a hospital.',
+      lead: 'An ASHA worker records a mother’s blood pressure at her doorstep. Someone has to decide whether that reading needs a doctor today, this week, or not at all. This is that decision, on a screen, for all three people standing in it.',
+      loopTitle: 'The referral loop',
+      loopLead: 'Three steps in a fixed order. Each one hands the next person something they can act on.',
+      steps: {
+        one:   { title: 'The visit',    desc: 'The ASHA worker registers the mother and records blood pressure, haemoglobin, weight and symptoms — the same fields as the paper register she already carries.' },
+        two:   { title: 'The reading',  desc: 'Rules score the visit and raise named flags. No model artefact ships with this repository, so the thresholds a clinician would recognise are what actually runs.' },
+        three: { title: 'The referral', desc: 'A flagged mother reaches the doctor’s inbox with her visit history and lab panel attached. The doctor accepts, adds results, and resolves.' },
+      },
+      statusTitle: 'What this is, honestly',
+      statusBody: 'A student prototype, built for a demo in March 2026 and archived after it. Nothing here has been used to care for a real patient, and nothing here is a diagnosis. The records in the demo are pseudonymised.',
+      paperTitle: 'The paper this became',
+      paperBody: 'The prototype raised a question it could not answer: what do you show someone when the model is genuinely unsure? That question became a preprint, and a cleaner reproducible artifact.',
+      paperCta: 'Read the artifact repository',
+      demoNote: 'Every screen runs on demo data in your browser. No account, no backend, no key.',
+    },
+
     // Landing
     heroTitle: 'Maatritva AI',
     heroSubtitle: 'Every mother deserves an early warning.',
@@ -148,6 +169,25 @@ export const translations = {
     greeting: 'नमस्ते',
     back: 'वापस',
     language: 'भाषा',
+
+    landing: {
+      eyebrow: 'प्रसव-पूर्व रेफरल · ग्रामीण गुजरात · संग्रहीत प्रोटोटाइप',
+      title: 'घर की विज़िट और अस्पताल के बीच।',
+      lead: 'आशा कार्यकर्ता माँ के घर पर उसका बीपी नापती है। किसी को तय करना होता है कि इस रीडिंग को डॉक्टर की ज़रूरत आज है, इस हफ़्ते है, या नहीं। यह वही फ़ैसला है — तीनों लोगों के लिए।',
+      loopTitle: 'रेफरल की प्रक्रिया',
+      loopLead: 'तीन चरण, एक क्रम में। हर चरण अगले व्यक्ति को कुछ करने लायक़ देता है।',
+      steps: {
+        one:   { title: 'विज़िट', desc: 'आशा कार्यकर्ता माँ को दर्ज करती है और बीपी, हीमोग्लोबिन, वज़न और लक्षण लिखती है।' },
+        two:   { title: 'जाँच', desc: 'नियम विज़िट को परखते हैं और जोखिम के संकेत उठाते हैं।' },
+        three: { title: 'रेफरल', desc: 'चिह्नित माँ डॉक्टर की सूची में पूरे रिकॉर्ड के साथ पहुँचती है।' },
+      },
+      statusTitle: 'यह क्या है',
+      statusBody: 'यह एक छात्र प्रोटोटाइप है। यहाँ कुछ भी निदान नहीं है, और किसी असली मरीज़ के इलाज में इसका उपयोग नहीं हुआ है।',
+      paperTitle: 'इससे बना शोध-पत्र',
+      paperBody: 'जब मॉडल खुद अनिश्चित हो, तब किसे क्या दिखाएँ — इसी सवाल पर यह शोध-पत्र लिखा गया।',
+      paperCta: 'आर्टिफैक्ट रिपोज़िटरी देखें',
+      demoNote: 'हर स्क्रीन डेमो डेटा पर चलती है।',
+    },
 
     // Landing
     heroTitle: 'मातृत्व AI',
