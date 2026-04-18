@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
+import { apiFetch } from '../../services/api';
 
-const API_BASE_URL = 'http://localhost:8000';
 
 const RISK_COLORS = {
   critical: 'bg-red-100 text-red-700 border border-red-200',
@@ -233,7 +233,7 @@ function PatientDetailPanel({
             <button
               onClick={() => onSaveNotes(referral.id, notes)}
               disabled={actionLoading}
-              className="px-3 py-2 rounded-lg text-xs font-semibold bg-saffron text-white hover:bg-terracotta transition-colors disabled:opacity-50 shadow-soft"
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-saffron text-white hover:bg-action-hover transition-colors disabled:opacity-50 shadow-soft"
             >
               Save Notes
             </button>
@@ -297,8 +297,8 @@ function PatientDetailPanel({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                   <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Age</span><span className="text-xs font-semibold text-charcoal">{patient?.age || '—'} yrs</span></div>
                   <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Week</span><span className="text-xs font-semibold text-charcoal">{week}</span></div>
-                  <div className="flex justify-between col-span-1"><span className="text-xs text-muted">BP</span><span className="text-xs font-mono font-bold text-charcoal">{bp}</span></div>
-                  <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Hb</span><span className="text-xs font-semibold text-charcoal">{latestVitals?.hemoglobin ? `${latestVitals.hemoglobin} g/dL` : '—'}</span></div>
+                  <div className="flex justify-between col-span-1"><span className="text-xs text-muted">BP</span><span className="tnum text-xs font-medium text-charcoal">{bp}</span></div>
+                  <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Hb</span><span className="tnum text-xs font-medium text-charcoal">{latestVitals?.hemoglobin ? `${latestVitals.hemoglobin} g/dL` : '—'}</span></div>
                   <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Gravida</span><span className="text-xs font-semibold text-charcoal">{patient?.gravida ?? '—'}</span></div>
                   <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Parity</span><span className="text-xs font-semibold text-charcoal">{patient?.parity ?? '—'}</span></div>
                   <div className="flex justify-between col-span-1"><span className="text-xs text-muted">Diabetes</span><span className="text-xs font-semibold text-charcoal">{patient?.diabetic_history ? 'Yes' : 'No'}</span></div>
@@ -502,7 +502,7 @@ export default function DoctorDashboard() {
   const fetchReferrals = async () => {
     setLoadingReferrals(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/referrals`);
+      const res = await apiFetch(`/doctor/referrals`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReferrals(Array.isArray(data) ? data : []);
@@ -535,7 +535,7 @@ export default function DoctorDashboard() {
     setSelectedReferralId(referralId);
     setLoadingDetail(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}`);
+      const res = await apiFetch(`/doctor/referrals/${referralId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSelectedDetail(data);
@@ -551,7 +551,7 @@ export default function DoctorDashboard() {
   const updateStatus = async (referralId, status) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}/status`, {
+      const res = await apiFetch(`/doctor/referrals/${referralId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -572,7 +572,7 @@ export default function DoctorDashboard() {
   const saveNotes = async (referralId, notes) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/referrals/${referralId}/status`, {
+      const res = await apiFetch(`/doctor/referrals/${referralId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes }),
@@ -593,7 +593,7 @@ export default function DoctorDashboard() {
   const saveLabs = async (patientId, labsPayload) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/patients/${patientId}/labs`, {
+      const res = await apiFetch(`/doctor/patients/${patientId}/labs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(labsPayload),
@@ -615,7 +615,7 @@ export default function DoctorDashboard() {
   const quickRefer = async (patientId) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/doctor/patients/${patientId}/refer`, { method: 'POST' });
+      const res = await apiFetch(`/doctor/patients/${patientId}/refer`, { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const created = await res.json();
       setReferrals((prev) => {
@@ -736,7 +736,7 @@ export default function DoctorDashboard() {
           className="pt-2 flex items-start justify-between gap-3"
         >
           <div>
-            <h1 className="text-3xl font-semibold text-charcoal tracking-tight">{t('doctorGreeting')} 🩺</h1>
+            <h1 className="text-3xl font-semibold text-charcoal tracking-tight">{t('doctorGreeting')}</h1>
             <p className="text-sm text-muted mt-1">
               {new Date().toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
@@ -771,21 +771,23 @@ export default function DoctorDashboard() {
             { key: 'elevated', label: t('highRisk'), value: stats.high, icon: Activity, color: 'bg-terracotta/10 text-terracotta', topBorder: 'border-t-terracotta' },
             { key: 'accepted', label: t('consultationsToday'), value: stats.consults, icon: Calendar, color: 'bg-sage/10 text-sage', topBorder: 'border-t-sage' },
           ].map(({ key, label, value, icon: Icon, color, topBorder }, i) => (
-            <motion.div key={label}
-              initial={{ opacity: 0, y: 14 }}
+            <motion.button key={label}
+              type="button"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.07, type: 'spring', stiffness: 120 }}
+              transition={{ delay: i * 0.05, duration: 0.3, ease: 'easeOut' }}
               onClick={() => setQuickFilter(key)}
-              className={`bg-ivory rounded-2xl px-4 py-4 shadow-soft border transition-colors cursor-pointer border-t-[3px] ${topBorder} ${quickFilter === key ? 'border-saffron/60 bg-saffron/5' : 'border-blush hover:border-saffron/40'}`}
+              aria-pressed={quickFilter === key}
+              className={`bg-card rounded-lg px-4 py-4 text-left border transition-colors cursor-pointer border-t-[3px] ${topBorder} ${quickFilter === key ? 'border-action/50 bg-action-tint' : 'border-ink-rule hover:border-ink-strong'}`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <p className="text-3xl font-bold text-charcoal tracking-tight">{loadingReferrals ? '…' : value}</p>
-                <div className={`w-8 h-8 rounded-lg ${color} flex items-center justify-center`}>
+                <p className="tnum text-[1.75rem] font-medium leading-none text-ink">{loadingReferrals ? '…' : value}</p>
+                <div className={`w-8 h-8 rounded ${color} flex items-center justify-center`}>
                   <Icon size={15} />
                 </div>
               </div>
-              <p className="text-xs text-muted mt-0.5">{label}</p>
-            </motion.div>
+              <p className="text-xs text-ink-soft mt-1">{label}</p>
+            </motion.button>
           ))}
         </div>
 
@@ -835,7 +837,7 @@ export default function DoctorDashboard() {
             <button
               type="button"
               onClick={() => setQuickFilter('all')}
-              className="mt-2 text-xs text-saffron font-semibold hover:text-terracotta transition-colors"
+              className="mt-2 text-xs text-saffron font-semibold hover:text-action-hover transition-colors"
             >
               {lang === 'hi' ? 'क्विक फ़िल्टर हटाएं' : 'Clear quick filter'}
             </button>
@@ -1048,7 +1050,7 @@ export default function DoctorDashboard() {
                         <td className="px-4 py-3"><span className="text-xs text-muted">{p.visit_count > 1 ? `${p.visit_count} visits` : '—'}</span></td>
                         <td className="px-4 py-3 text-xs text-muted">{formatDate(p.last_visit_date || p.referred_at)}</td>
                         <td className="px-4 py-3">
-                          <button className="text-xs text-saffron font-semibold hover:text-terracotta transition-colors flex items-center gap-1">
+                          <button className="text-xs text-saffron font-semibold hover:text-action-hover transition-colors flex items-center gap-1">
                             {t('viewReport')} <ChevronRight size={10} />
                           </button>
                         </td>

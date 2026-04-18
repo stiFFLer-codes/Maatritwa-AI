@@ -3,7 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, Heart, Leaf, Droplets, Sun, Apple } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
-import { chatWithAmma } from '../../services/sarvamChat';
+import { chatWithAmma } from '../../services/ammaChat';
+
+// Voice input is Chromium-only. Read it once here rather than in an effect, so
+// the mic button is simply absent where the browser cannot honour it.
+const VOICE_SUPPORTED = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
 
 // ── Demo patient state ─────────────────────────────────────────────────────────
 // In production, this would be fetched from /mother/profile or authenticated endpoint
@@ -61,11 +65,11 @@ function PregnancyRing({ week = 24, total = 40, lang = 'hi' }) {
     <div className="flex flex-col items-center">
       <div className="relative w-48 h-48">
         <svg viewBox="0 0 180 180" className="w-full h-full -rotate-90">
-          <circle cx="90" cy="90" r={r} fill="none" stroke="#F2DDD0" strokeWidth={SW} />
+          <circle cx="90" cy="90" r={r} fill="none" stroke="#E4E2DB" strokeWidth={SW} />
           <motion.circle
             cx="90" cy="90" r={r}
             fill="none"
-            stroke="#E8863A"
+            stroke="#191A17"
             strokeWidth={SW}
             strokeLinecap="round"
             strokeDasharray={`${C} ${C}`}
@@ -80,12 +84,12 @@ function PregnancyRing({ week = 24, total = 40, lang = 'hi' }) {
             const wk = Math.round((i / 8) * total);
             return (
               <circle key={i} cx={x} cy={y} r="3"
-                fill={wk <= week ? '#E8863A' : '#F2DDD0'} />
+                fill={wk <= week ? '#191A17' : '#E4E2DB'} />
             );
           })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-serif text-4xl font-bold text-charcoal">{week}</span>
+          <span className="tnum text-[2.5rem] font-medium leading-none text-ink">{week}</span>
           <span className="text-xs text-muted font-medium">
             {lang === 'hi' ? 'सप्ताह' : 'weeks'}
           </span>
@@ -116,16 +120,16 @@ function PregnancyRing({ week = 24, total = 40, lang = 'hi' }) {
 function AmmaAvatar({ size = 40 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="30" cy="30" r="30" fill="#F2DDD0" />
+      <circle cx="30" cy="30" r="30" fill="#E4E2DB" />
       <circle cx="30" cy="27" r="16" fill="#D4917A" />
-      <path d="M14,27 C14,17 21,10 30,10 C39,10 46,17 46,27 C43,21 37,17 30,17 C23,17 17,21 14,27 Z" fill="#2D2A26" opacity="0.8" />
-      <ellipse cx="30" cy="12" rx="9" ry="6" fill="#2D2A26" opacity="0.75" />
-      <circle cx="30" cy="8" r="4" fill="#E8863A" opacity="0.85" />
-      <circle cx="24" cy="25" r="2.5" fill="#2D2A26" opacity="0.7" />
-      <circle cx="36" cy="25" r="2.5" fill="#2D2A26" opacity="0.7" />
+      <path d="M14,27 C14,17 21,10 30,10 C39,10 46,17 46,27 C43,21 37,17 30,17 C23,17 17,21 14,27 Z" fill="#191A17" opacity="0.8" />
+      <ellipse cx="30" cy="12" rx="9" ry="6" fill="#191A17" opacity="0.75" />
+      <circle cx="30" cy="8" r="4" fill="#191A17" opacity="0.85" />
+      <circle cx="24" cy="25" r="2.5" fill="#191A17" opacity="0.7" />
+      <circle cx="36" cy="25" r="2.5" fill="#191A17" opacity="0.7" />
       <circle cx="25" cy="24" r="0.8" fill="white" />
       <circle cx="37" cy="24" r="0.8" fill="white" />
-      <path d="M23,31 Q30,36 37,31" stroke="#2D2A26" strokeWidth="1.5" fill="none" opacity="0.5" strokeLinecap="round" />
+      <path d="M23,31 Q30,36 37,31" stroke="#191A17" strokeWidth="1.5" fill="none" opacity="0.5" strokeLinecap="round" />
       <circle cx="30" cy="19" r="1.8" fill="#C75B39" />
       <path d="M12,58 C12,46 20,42 30,42 C40,42 48,46 48,58" fill="#7BA68A" opacity="0.7" />
     </svg>
@@ -219,7 +223,7 @@ export default function MotherDashboard() {
     setInputText('');
     setIsLoading(true);
 
-    const response = await chatWithAmma(userMsg, [...messages, newUserMsg]);
+    const response = chatWithAmma(userMsg);
 
     // Short delay for natural feel
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -238,14 +242,8 @@ export default function MotherDashboard() {
   const riskMsg = RISK_MESSAGES[risk];
 
   return (
-    <div className="min-h-screen bg-cream relative overflow-hidden">
-      {/* Subtle background decoration */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gradient-to-br from-blush/40 to-saffron/10 blur-3xl" />
-        <div className="absolute -bottom-48 -left-48 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-sage/10 to-blush/20 blur-3xl" />
-      </div>
-
-      <TopBar />
+    <div className="min-h-screen bg-paper">
+      <TopBar alwaysDemo />
 
       {/* Two-column desktop layout */}
       <div className="relative max-w-6xl mx-auto px-4 py-6">
@@ -301,9 +299,9 @@ export default function MotherDashboard() {
                   },
                   { label: lang === 'hi' ? 'अगली विज़िट' : 'Next Visit', value: lang === 'hi' ? '7 दिन बाद' : 'In 7 days' },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-white/60 rounded-xl p-3 border border-white">
-                    <p className="text-xs text-muted mb-0.5">{label}</p>
-                    <p className="text-sm font-semibold text-charcoal">{value}</p>
+                  <div key={label} className="rounded-lg border border-ink-rule bg-card p-3">
+                    <p className="label mb-1">{label}</p>
+                    <p className="tnum text-sm font-medium text-ink">{value}</p>
                   </div>
                 ))}
               </div>
@@ -419,30 +417,39 @@ export default function MotherDashboard() {
                   onKeyDown={e => e.key === 'Enter' && sendMessage()}
                   placeholder={lang === 'hi' ? 'अम्मा से पूछें…' : 'Ask Amma…'}
                   disabled={isLoading}
-                  className="flex-1 h-11 px-4 rounded-full border-2 border-blush bg-cream text-sm text-charcoal focus:border-saffron focus:outline-none transition-colors disabled:opacity-50"
+                  className="flex-1 h-11 px-4 rounded-full border border-ink-strong bg-cream text-sm text-charcoal focus:border-saffron focus:outline-none transition-colors disabled:opacity-50"
                 />
                 <button
                   onClick={() => sendMessage()}
                   disabled={isLoading || !inputText.trim()}
-                  className="w-11 h-11 rounded-full bg-saffron flex items-center justify-center hover:bg-terracotta transition-colors flex-shrink-0 disabled:opacity-50"
+                  aria-label={lang === 'hi' ? 'भेजें' : 'Send'}
+                  className="w-11 h-11 rounded-full bg-saffron flex items-center justify-center hover:bg-action-hover transition-colors flex-shrink-0 disabled:opacity-50"
                 >
                   <Send size={16} className="text-white" />
                 </button>
-                <button
-                  onClick={toggleListening}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
-                    isListening
-                      ? 'bg-terracotta text-white animate-pulse'
-                      : 'bg-blush text-terracotta hover:bg-terracotta/20'
-                  }`}
-                >
-                  <Mic size={16} />
-                </button>
+                {/* Web Speech API is Chromium-only. Hide the button where it is
+                    unsupported rather than leaving a control that does nothing. */}
+                {VOICE_SUPPORTED && (
+                  <button
+                    onClick={toggleListening}
+                    aria-label={lang === 'hi'
+                      ? (isListening ? 'सुनना बंद करें' : 'बोलकर पूछें')
+                      : (isListening ? 'Stop listening' : 'Ask by voice')}
+                    aria-pressed={isListening}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                      isListening
+                        ? 'bg-terracotta text-white animate-pulse'
+                        : 'bg-blush text-terracotta hover:bg-action-hover/20'
+                    }`}
+                  >
+                    <Mic size={16} />
+                  </button>
+                )}
               </div>
 
               {/* Powered by badge */}
               <div className="px-4 py-2 text-center border-t border-blush/40">
-                <p className="text-[10px] text-muted/60">Powered by Sarvam AI 🇮🇳</p>
+                <p className="text-[10px] text-muted/60">Offline guidance · WHO · ICMR · FOGSI</p>
               </div>
             </motion.div>
           </div>
