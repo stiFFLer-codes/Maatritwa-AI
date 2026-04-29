@@ -1,374 +1,127 @@
-# Maatritwa AI - Setup Guide
+# Setup
 
-Complete step-by-step guide to set up the development environment for Maatritwa AI.
+This project is archived. These instructions are kept so it still runs.
+
+There are two ways to run it, and **the first is the one you want.**
 
 ---
 
-## 📋 Prerequisites
+## Option A — frontend only (recommended)
 
-Before you begin, ensure you have the following installed:
+No backend, no database, no accounts, no API keys.
 
-| Requirement | Version | Download Link |
-|-------------|---------|---------------|
-| Node.js | 18.x or higher | [Download](https://nodejs.org/) |
-| npm | 9.x or higher | Included with Node.js |
-| Git | Latest | [Download](https://git-scm.com/) |
-| VS Code (recommended) | Latest | [Download](https://code.visualstudio.com/) |
-
-### Verify Installations
-
-Open your terminal/command prompt and run:
+**Prerequisites:** Node.js 18+ and npm 9+.
 
 ```bash
-# Check Node.js version
-node --version
-# Expected: v18.x.x or higher
-
-# Check npm version
-npm --version
-# Expected: 9.x.x or higher
-
-# Check Git version
-git --version
-# Expected: 2.x.x or higher
+git clone https://github.com/stiFFLer-codes/Maatritwa-AI.git
+cd Maatritwa-AI/frontend
+npm install
+npm run dev
 ```
 
+Open <http://localhost:5173>.
+
+All three dashboards work. When no backend answers on `localhost:8000`, `src/services/api.js` falls back to `src/services/demoBackend.js`, an in-browser stand-in that serves the same endpoints in the same shapes as the real API. Every screen shows an amber strip saying the data is demo data.
+
+The demo dataset is 104 pseudonymised clinical records with three generated visits each, so the visit-trend and eclampsia-gate features have something to work on. State lives for one page session — raise a referral on `/asha`, switch to `/doctor`, and it is there; reload and everything resets to seed.
+
+### Scripts
+
+Run from `frontend/`.
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the production build |
+| `npm run lint` | ESLint — reports pre-existing findings, see below |
+| `npm test` | Three self-checks: demo backend, Amma chat, and page rendering |
+
+`npm run lint` is not clean: 16 findings, down from 29. Seven are a config gap rather than a defect —
+the flat config has no `eslint-plugin-react`, so `no-unused-vars` cannot see identifiers used only
+inside JSX and flags `motion` and `Icon` in every file that animates something. The rest are unused
+locals in the two large dashboards. Adding a plugin to silence the first group was not worth a new
+dependency in an archived repo.
+
+`npm test` bundles three checks with the esbuild that already ships inside Vite and runs them on node. There is no test framework and no new dependency.
+
+| Check | Guards |
+|---|---|
+| `test:demo` | The in-browser API stand-in returns the shapes the dashboards expect |
+| `test:amma` | The chat routes emergencies before anything else, and a "blood pressure" question does not trip the bleeding alarm |
+| `test:ui` | All four pages render, in Hindi, with no unresolved translation keys and no withdrawn claims |
+
+`test:ui` renders the real components with `react-dom/server`. Effects do not run, so each dashboard renders its initial pre-fetch state — enough to catch the failure a sweeping design or token change actually causes.
+
+### Optional frontend config
+
+Copy `frontend/.env.example` to `frontend/.env`. Every value is optional.
+
+- `VITE_API_BASE_URL` — where the backend lives. Default `http://localhost:8000`.
+- `VITE_DEMO_MODE=1` — always use demo data, even if a backend is running.
+
+> There is no API key of any kind. The "Amma" chat on `/mother` used to call a hosted LLM; that was removed when the project was archived, and it now answers entirely offline from the curated WHO/ICMR/FOGSI replies in `src/services/ammaChat.js`. Nothing in this repo talks to a third-party service.
+
 ---
 
-## 🚀 Quick Setup (5 minutes)
+## Option B — with the real backend
 
-### Step 1: Clone the Repository
+Only worth doing if you specifically want the FastAPI + Supabase path. It needs **your own Supabase project**; the original is gone and no credentials ship with this repo.
+
+**Prerequisites:** Python 3.11+, plus a free Supabase account.
+
+### 1. Install
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-
-# Navigate to project folder
 cd Maatritwa-AI
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r backend/requirements.txt
 ```
 
-### Step 2: Install Dependencies
+### 2. Create the database
+
+Create a Supabase project, open the SQL editor, and run `backend/supabase/schema.sql`. That is the whole database — tables, constraints, indexes and row-level security.
+
+> **Skip `backend/supabase/migrations/`.** Those files were written against an earlier shape of the schema. `004_create_views.sql` in particular selects `patients.gravida`, `patients.parity` and `vitals.pulse_rate`, which no migration ever creates, so it fails outright. `schema.sql` is self-contained and is what the API actually needs. See the divergences section of [docs/architecture.md](./docs/architecture.md).
+
+### 3. Configure
 
 ```bash
-cd frontend
-npm install
+cp backend/.env.example backend/.env
 ```
 
-This will install all required packages including:
-- React 19
-- React Router DOM
-- Framer Motion
-- Tailwind CSS
-- Lucide React icons
-- Vite (build tool)
+Fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from your project's API settings.
 
-### Step 3: Start Development Server
+> ⚠️ **`DEV_AUTH` defaults to `1`, which means there is no authentication at all.** Every request is served as a fixed demo user for whichever role the endpoint asks for. That is how the project was demoed. Do not put this on a public address. Setting `DEV_AUTH=0` restores real Supabase token verification, which has not been exercised since March 2026 — treat it as untested.
+
+### 4. Seed and run
 
 ```bash
-npm run dev
+python backend/seed_data.py
+uvicorn app.main:app --reload --app-dir backend
 ```
 
-You should see output like:
-```
-  VITE v7.x.x  ready in xxx ms
+API docs at <http://localhost:8000/docs>.
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-  ➜  press h + enter to show help
-```
+With the backend up, the frontend uses it automatically and the demo banner disappears. If the backend returns 5xx — most often missing Supabase credentials — the frontend falls back to demo data and logs why to the console.
 
-### Step 4: Open in Browser
+### 5. Models (optional)
 
-Navigate to: **http://localhost:5173/**
+No `.pkl` model artifacts are committed. Without them both predictors use the rule-based fallbacks in `backend/app/ml.py`, which is the intended default.
 
-🎉 You should see the Maatritwa AI landing page!
+The training scripts in `backend/ml/` need the raw clinical spreadsheet, which is **not distributed** — see the Data section of the README. Without it, `train_xgboost.py` and `process_clinical_data.py` will exit at the missing-file check. `generate_synthetic_data.py` runs on its own and only writes synthetic rows.
 
 ---
 
-## 📁 Project Structure Overview
+## Troubleshooting
 
-```
-Maatritwa-AI/
-├── frontend/                 # React + Vite app
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.js
-├── backend/                  # FastAPI backend + ML + Supabase SQL
-│   ├── app/
-│   ├── ml/
-│   ├── data/
-│   └── supabase/
-└── docs/                     # Documentation
-```
+**Dashboards are empty or erroring.** They should never be — the fallback covers a missing backend. Check the browser console for a `[maatritwa]` line saying which path it took. Force the demo path with `VITE_DEMO_MODE=1`.
 
----
+**Port 5173 in use.** `npm run dev -- --port 3000`.
 
-## 🛠️ Available Scripts
+**Backend returns 500 on everything.** Supabase credentials are missing or wrong. Check `backend/.env`. The frontend will have switched to demo data already.
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server with hot reload |
-| `npm run build` | Create production build in `dist/` folder |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run ESLint to check code quality |
+**`npm install` fails.** `npm cache clean --force`, delete `node_modules` and `package-lock.json`, reinstall.
 
-Run these commands from the `frontend` folder.
-
-### Usage Examples
-
-```bash
-# Development (most common)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run build
-npm run preview
-
-# Check code style
-npm run lint
-```
-
----
-
-## 💻 VS Code Setup (Recommended)
-
-### Extensions to Install
-
-1. **ES7+ React/Redux/React-Native snippets** - Code snippets
-2. **Tailwind CSS IntelliSense** - Autocomplete for Tailwind
-3. **Prettier - Code: formatter** - Code formatting
-4. **ESLint** - Linting support
-5. **Auto Rename Tag** - Auto rename paired tags
-
-### Recommended Settings
-
-Create `.vscode/settings.json` in the project root:
-
-```json
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  },
-  "emmet.includeLanguages": {
-    "javascript": "javascriptreact"
-  },
-  "tailwindCSS.includeLanguages": {
-    "javascript": "javascript",
-    "javascriptreact": "javascript"
-  }
-}
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Issue: `npm install` fails
-
-**Solution:**
-```bash
-# Clear npm cache
-npm cache clean --force
-
-# Delete node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Issue: Port 5173 is already in use
-
-**Solution:**
-```bash
-# Use a different port
-npm run dev -- --port 3000
-
-# Or kill the process using port 5173
-# Windows:
-netstat -ano | findstr :5173
-taskkill /PID <PID> /F
-
-# Mac/Linux:
-lsof -ti:5173 | xargs kill -9
-```
-
-### Issue: Tailwind styles not applying
-
-**Solution:**
-1. Ensure `src/index.css` has:
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-2. Restart the dev server:
-```bash
-Ctrl + C  # Stop server
-npm run dev  # Start again
-```
-
-### Issue: "Cannot find module" errors
-
-**Solution:**
-```bash
-# Reinstall dependencies
-rm -rf node_modules
-npm install
-```
-
-### Issue: ESLint errors on fresh clone
-
-**Solution:**
-```bash
-# Run lint fix
-npm run lint -- --fix
-```
-
----
-
-## 🌐 Browser Support
-
-| Browser | Version |
-|---------|---------|
-| Chrome | 90+ |
-| Firefox | 88+ |
-| Safari | 14+ |
-| Edge | 90+ |
-
----
-
-## 📝 Development Workflow
-
-### 1. Create a Feature Branch
-
-```bash
-# Make sure you're on main and up to date
-git checkout main
-git pull origin main
-
-# Create and switch to new branch
-git checkout -b feature/your-feature-name
-```
-
-### 2. Make Changes
-
-- Edit files in `src/`
-- Follow existing code style
-- Add comments for complex logic
-
-### 3. Test Your Changes
-
-```bash
-# Run dev server and test in browser
-npm run dev
-
-# Check for lint errors
-npm run lint
-```
-
-### 4. Commit and Push
-
-```bash
-# Stage changes
-git add .
-
-# Commit with descriptive message
-git commit -m "feat: add patient search functionality"
-
-# Push to remote
-git push origin feature/your-feature-name
-```
-
-### 5. Create Pull Request
-
-- Go to repository on GitHub
-- Click "New Pull Request"
-- Select your branch
-- Add description of changes
-- Request review from teammates
-
----
-
-## 🔧 Customization Guide
-
-### Changing Theme Colors
-
-Edit `tailwind.config.js`:
-
-```javascript
-colors: {
-  primary: {
-    DEFAULT: '#6C5CE7',    // Change this
-    light: '#A29BFE',
-    dark: '#5F3DC4',
-  },
-  // ... other colors
-}
-```
-
-### Adding a New Route
-
-1. Create page component in `src/pages/`
-2. Add route in `src/App.jsx`:
-
-```jsx
-import NewPage from "./pages/NewPage"
-
-<Route path="/new-path" element={<NewPage />} />
-```
-
-### Adding a New Component
-
-1. Create file in appropriate folder (`src/components/shared/` or `src/components/asha/`)
-2. Use existing components as template
-3. Export and import where needed
-
----
-
-## 📚 Learning Resources
-
-New to the tech stack? Check these out:
-
-| Technology | Resource |
-|------------|----------|
-| React | [React Docs](https://react.dev/) |
-| Tailwind CSS | [Tailwind Docs](https://tailwindcss.com/docs) |
-| Framer Motion | [Framer Motion Docs](https://www.framer.com/motion/) |
-| React Router | [React Router Docs](https://reactrouter.com/) |
-| Vite | [Vite Docs](https://vitejs.dev/guide/) |
-
----
-
-## 🤝 Need Help?
-
-If you encounter any issues not covered here:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Search existing [GitHub Issues](../../issues)
-3. Ask in the team Discord/Slack channel
-4. Create a new issue with detailed description
-
----
-
-## ✅ Setup Checklist
-
-- [ ] Node.js installed (v18+)
-- [ ] Repository cloned
-- [ ] `npm install` completed successfully
-- [ ] `npm run dev` starts without errors
-- [ ] Landing page loads at http://localhost:5173/
-- [ ] All three role cards visible
-- [ ] Can navigate to ASHA Dashboard
-- [ ] VS Code extensions installed (optional but recommended)
-
----
-
-**Happy Coding! 💙**
-
-*For architecture details, see [docs/architecture.md](./docs/architecture.md)*
+**Tailwind styles missing.** Confirm `src/index.css` starts with the three `@tailwind` directives, then restart the dev server.

@@ -1,5 +1,14 @@
 # मातृत्व AI (Maatritva AI) - Project Guide
 
+> **Archived, and partly historical.** This guide was written in March 2026 before
+> the backend existed. The design system, accessibility rules and component
+> patterns below are still accurate and still worth following. The stack,
+> integration and status sections have been corrected to match what was actually
+> built. Where it says "future", it usually means "was never built".
+>
+> For the current picture start at [README.md](../../README.md) and
+> [docs/architecture.md](../../docs/architecture.md).
+
 ## Project Overview
 
 **मातृत्व AI** is an AI-powered maternal health intelligence ecosystem designed for rural India. It connects ASHA workers, pregnant mothers, and doctors to enable early detection of preeclampsia 4-6 weeks before clinical symptoms appear.
@@ -67,15 +76,16 @@
 }
 ```
 
-### Backend (Future)
+### Backend (as built)
 ```json
 {
-  "api": "Flask (Python)",
-  "ml": "scikit-learn + SHAP",
-  "voice": "Google Speech-to-Text API",
-  "database": "Firebase Realtime Database",
-  "hosting": "Google Cloud Run",
-  "storage": "Firebase Storage"
+  "api": "FastAPI (Python)",
+  "ml": "scikit-learn, pickled models with rule-based fallbacks",
+  "database": "Supabase (Postgres)",
+  "chat": "offline — cited WHO/ICMR/FOGSI replies, no LLM, no network",
+  "hosting": "never deployed",
+  "voice": "never built",
+  "shap": "never built — see the three-voices repo for that work"
 }
 ```
 
@@ -92,178 +102,190 @@
 ---
 
 ## Project Structure
+
+> The real tree, as of September 2026. What this section used to list — Firebase
+> hooks, a TrendChart, a ShapExplanation, a VoiceInputButton, per-role component
+> folders — was never built. If a file is not below, it does not exist.
+
 ```
-maatritva-ai/
-├── public/
-│   └── assets/
-│       └── illustrations/      # Custom SVG illustrations (lotus, etc.)
-├── src/
-│   ├── components/
-│   │   ├── shared/            # Used across all interfaces
-│   │   │   ├── Button.jsx
-│   │   │   ├── Card.jsx
-│   │   │   ├── Badge.jsx
-│   │   │   ├── RiskOMeter.jsx
-│   │   │   └── LoadingSpinner.jsx
-│   │   ├── asha/              # ASHA-specific components
-│   │   │   ├── VoiceInputButton.jsx
-│   │   │   ├── PatientCard.jsx
-│   │   │   ├── VitalsForm.jsx
-│   │   │   └── TrendChart.jsx
-│   │   ├── mother/            # Mother-specific components
-│   │   │   ├── SafetyCard.jsx
-│   │   │   ├── VisitTimeline.jsx
-│   │   │   └── HealthTip.jsx
-│   │   └── doctor/            # Doctor-specific components
-│   │       ├── PatientTable.jsx
-│   │       ├── ShapExplanation.jsx
-│   │       └── FilterBar.jsx
-│   ├── pages/
-│   │   ├── Landing.jsx
-│   │   ├── asha/
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── PatientList.jsx
-│   │   │   ├── RecordVisit.jsx
-│   │   │   └── PatientDetail.jsx
-│   │   ├── mother/
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── VisitHistory.jsx
-│   │   └── doctor/
-│   │       ├── Dashboard.jsx
-│   │       └── PatientDetail.jsx
-│   ├── hooks/
-│   │   ├── usePatients.js     # Firebase real-time patient data
-│   │   ├── useVoiceRecording.js
-│   │   └── useAuth.js
-│   ├── lib/
-│   │   ├── firebase.js        # Firebase config and helpers
-│   │   ├── api.js             # API client for ML backend
-│   │   └── utils.js           # Utility functions
-│   ├── contexts/
-│   │   ├── AuthContext.jsx
-│   │   └── LanguageContext.jsx
-│   ├── App.jsx                # Main app with routing
-│   ├── main.jsx               # Entry point
-│   └── index.css              # Global styles + Tailwind
-├── tailwind.config.js         # Custom design system
+frontend/
+├── index.html                     # fonts, title, theme-color, favicon
+├── public/mark.svg                # the mark, also the favicon
+├── tailwind.config.js             # design tokens — the source of truth
+├── postcss.config.js
 ├── vite.config.js
-├── package.json
-└── CLAUDE.md                  # This file
+├── eslint.config.js
+└── src/
+    ├── main.jsx
+    ├── App.jsx                    # four routes, no layout wrapper
+    ├── index.css                  # tokens, base type, .tnum, .label, .spine, motion
+    ├── CLAUDE.md                  # this file
+    ├── components/shared/
+    │   ├── Wordmark.jsx           # Mark + wordmark, monochrome
+    │   ├── TopBar.jsx             # back / wordmark / language + the demo banner
+    │   ├── LanguageToggle.jsx
+    │   ├── RiskBadge.jsx          # the four-level chip
+    │   └── RiskRendering.jsx      # the landing signature: one reading, three renderings
+    ├── pages/
+    │   ├── Landing.jsx
+    │   ├── landing.test.jsx       # renders all four pages under node
+    │   ├── test-dom-stub.js       # minimal window/document for that test
+    │   ├── asha/AshaDashboard.jsx     # ~2,000 lines, sub-components inlined
+    │   ├── doctor/DoctorDashboard.jsx
+    │   └── mother/MotherDashboard.jsx
+    ├── services/
+    │   ├── api.js                 # apiFetch: real backend, else demo fallback
+    │   ├── demoBackend.js         # in-browser stand-in for the whole API
+    │   ├── demoBackend.test.mjs
+    │   ├── ammaChat.js            # offline cited replies, no LLM
+    │   └── ammaChat.test.mjs
+    ├── data/
+    │   ├── clinicalPatients.json  # 104 pseudonymised records
+    │   ├── clinicalKnowledgeBase.js
+    │   ├── decisionTreeRules.js
+    │   └── modelMetrics.json      # read its `caveats` block first
+    └── i18n/
+        ├── LanguageContext.jsx    # also syncs <html lang>
+        └── translations.js        # Hindi default, English second
 ```
+
+There are no `hooks/`, `lib/`, or `contexts/` directories, and no per-role
+component folders. The dashboards keep their sub-components inlined — that is
+how they were written under a demo deadline and they have not been decomposed.
 
 ---
 
 ## Design System
 
-### Color Palette
+> Rewritten September 2026 to match what the code actually does. The palette
+> this section used to describe (coral / purple / mint, Inter + Outfit) was
+> never in the codebase, and the one after it (cream + Playfair + terracotta)
+> was replaced in the same pass. `tailwind.config.js` is the source of truth.
 
-**Maternal Theme Colors:**
+### The one rule
+
+**Chroma is a clinical signal.** Nothing decorative is coloured.
+
+| Family | Means | Where it appears |
+|---|---|---|
+| **Warm ramp** | the patient's state | risk badges, spines, the risk ladder, flags |
+| **Cool** (`action`) | something you can act on | buttons, links, focus rings, filter chips |
+| **Ink** | everything else | text, hairlines, structure, the demo banner |
+
+An alarm that competes with ornament stops reading as an alarm. That is the
+argument the paper behind this repo makes about rendering risk, applied to the
+interface itself. If you are reaching for colour and it is not a patient's
+state or a control, use ink.
+
+### Palette
+
 ```css
-/* Primary Colors - Warm, Maternal, Trustworthy */
---maternal-coral: #FF6B6B;      /* Life, warmth (not alarming red) */
---maternal-coral-light: #FFB4A2;
---maternal-coral-dark: #E63946;
+--paper:       #F6F5F2;   /* page ground — warm neutral, not cream */
+--card:        #FFFFFF;   /* raised surface */
+--ink:         #191A17;   /* body text, 16:1 on paper */
+--ink-soft:    #5C5E58;   /* secondary text, 6.0:1 */
+--ink-rule:    #E4E2DB;   /* hairlines */
+--ink-strong:  #C9C6BC;   /* emphasised hairlines, input borders */
 
---maternal-purple: #6C5CE7;     /* Trust, wisdom */
---maternal-purple-light: #A29BFE;
---maternal-purple-dark: #5F3DC4;
+--action:      #1E3A5F;   /* the only cool colour. Interactive, never a signal */
+--action-hover:#162C48;
+--action-tint: #E8ECF2;
 
---maternal-mint: #51CF66;       /* Health, growth */
---maternal-mint-light: #96F2B4;
---maternal-mint-dark: #37B24D;
-
-/* Neutral Base - Warmth (NOT sterile white) */
---cream: #FFF8F0;               /* Background warmth */
---sand: #F8F0E3;                /* Card backgrounds */
---warm-gray: #E8DFD6;           /* Borders, dividers */
---charcoal: #2D3748;            /* Text primary */
---gray-warm: #718096;           /* Text secondary */
-
-/* Semantic Risk Colors (Traffic Light System) */
---risk-safe: #51CF66;           /* Green - All clear */
---risk-monitor: #FCC419;        /* Yellow - Watch closely */
---risk-elevated: #FF922B;       /* Orange - Action needed */
---risk-critical: #FF6B6B;       /* Red - Urgent */
+--risk-safe:     #276749;  /* 6.2:1 on paper */
+--risk-watch:    #8A5D0B;  /* 5.3:1 */
+--risk-high:     #AE4515;  /* 5.3:1 */
+--risk-critical: #8F1D1D;  /* 8.2:1 */
 ```
 
-**Usage Rules:**
-- Background: ALWAYS use cream (#FFF8F0), NEVER pure white (#FFFFFF)
-- Cards: Use sand (#F8F0E3) for warmth
-- Primary actions: Gradient from maternal-purple to maternal-coral
-- Risk indicators: Traffic light colors (safe/monitor/elevated/critical)
+Every foreground/background pairing in this palette clears WCAG AA (4.5:1) on
+both `--paper` and `--card`, including each risk colour on its own tint chip.
+If you add a colour, check it before you commit it.
+
+**Tailwind aliases.** The two large dashboards carry ~800 class names written
+against the old palette (`saffron`, `terracotta`, `blush`, `charcoal`, …).
+Those names are aliased in `tailwind.config.js` onto the tokens above rather
+than rewritten in place. Prefer the real token names (`text-ink`,
+`border-ink-rule`, `bg-risk-tint-watch`, `text-action`) in new code.
 
 ### Typography
 
-**Font Families:**
+One superfamily, three roles:
+
 ```css
---font-primary: 'Inter', 'Noto Sans Devanagari', sans-serif;
---font-accent: 'Outfit', 'Noto Sans Devanagari', sans-serif;
+--font-sans: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', system-ui, sans-serif;
+--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 ```
 
-**Type Scale (Larger for readability in sunlight):**
-```css
---text-xs: 0.875rem;   /* 14px - Minimum readable size */
---text-sm: 1rem;       /* 16px - Body text */
---text-base: 1.125rem; /* 18px - Comfortable reading */
---text-lg: 1.25rem;    /* 20px - Subheadings */
---text-xl: 1.5rem;     /* 24px - Headings */
---text-2xl: 2rem;      /* 32px - Risk scores */
---text-3xl: 3rem;      /* 48px - Hero numbers */
+IBM Plex Sans carries no Devanagari, so Devanagari text falls through to IBM
+Plex Sans Devanagari automatically — same superfamily, optically matched, and
+**no per-string language class anywhere in the app.** Hindi is set as a first
+class face here, not as whatever the system happens to supply.
 
-/* Weight */
---font-normal: 400;
---font-medium: 500;
---font-semibold: 600;
---font-bold: 700;
+There is no separate display face. Headings are separated from body text by
+weight (600) and negative tracking, not by a contrasting family: a triage
+screen read at arm's length in daylight wants one voice, not two.
 
-/* Line Height (More generous for Hindi) */
---leading-tight: 1.25;
---leading-normal: 1.5;
---leading-relaxed: 1.75;  /* Use for Hindi paragraphs */
-```
+**`.tnum`** puts a value in IBM Plex Mono with tabular figures. Use it for
+every clinical number — blood pressure, haemoglobin, gestation week, score,
+patient id — so columns of readings line up and a changed digit is visible.
 
-**Rules:**
-- MINIMUM body text: 16px (text-sm)
-- Hindi text: Use leading-relaxed (1.75)
-- Headings: Use font-accent (Outfit) for personality
-- Body: Use font-primary (Inter) for readability
+**Sizes.** 16px body minimum. Hindi headings get extra leading through
+`:lang(hi)` in `index.css`; keep `document.documentElement.lang` in sync (the
+`LanguageProvider` already does).
+
+### Structural devices
+
+- **`.spine`** — a solid band down the leading edge of a record, coloured by
+  risk (`spine-safe` / `spine-moderate` / `spine-high` / `spine-critical`).
+  Borrowed from the Mother and Child Protection card these workers already
+  carry, which is banded the same way. State risk **once** per row: the spine
+  plus a badge is enough, a third dot is noise.
+- **`.label`** — 11px uppercase tracked ink-soft, for field names, table
+  headers and section eyebrows.
+- **Hairline grids** — `grid gap-px bg-ink-rule` over `bg-card` children gives
+  a document rule between panels without borders that double up.
+
+### Motion
+
+Subtle tier. 200–450ms, ease-out. One orchestrated entrance per page, then the
+page holds still — anything still moving after the reader arrives is competing
+with the risk signal. `prefers-reduced-motion` is honoured globally in
+`index.css` and by `useReducedMotion()` on the landing page.
 
 ### Spacing & Layout
 
-**Touch Targets (Minimum 48px for accessibility):**
-```css
-/* Button heights */
---btn-sm: 3rem;   /* 48px minimum */
---btn-md: 3.5rem; /* 56px for primary actions */
---btn-lg: 4rem;   /* 64px for critical actions */
+**Touch targets (minimum 44px, 48px for primary field actions):**
 
+```css
+--btn-sm: 2.75rem; /* 44px — the floor */
+--btn-md: 3rem;    /* 48px — form inputs and primary actions */
+--btn-lg: 3.5rem;  /* 56px — critical actions */
+```
+
+```css
 /* Spacing scale (4px grid) */
---space-1: 0.25rem;  /* 4px */
---space-2: 0.5rem;   /* 8px */
---space-3: 0.75rem;  /* 12px */
---space-4: 1rem;     /* 16px */
---space-6: 1.5rem;   /* 24px */
---space-8: 2rem;     /* 32px */
---space-12: 3rem;    /* 48px */
---space-16: 4rem;    /* 64px */
+--space-1: 0.25rem;  --space-2: 0.5rem;   --space-3: 0.75rem;
+--space-4: 1rem;     --space-6: 1.5rem;   --space-8: 2rem;
+--space-12: 3rem;    --space-16: 4rem;
 ```
 
-**Grid System:**
-- Mobile-first (design for 360px width)
-- Breakpoints: sm (640px), md (768px), lg (1024px)
-- Generous padding on mobile (p-6 minimum for main content)
+**Grid.** Mobile-first, designed down to 360px. Breakpoints sm (640), md (768),
+lg (1024). Wide content scrolls inside its own container; the page body never
+scrolls horizontally.
 
-### Shadows & Effects
-```css
-/* Soft, warm shadows (not harsh) */
---shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
---shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
---shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+**Radii.** 6–14px. Documents have corners; the 24px+ blobs are gone.
 
-/* Glow effects for critical states */
---glow-red: 0 0 20px rgba(255, 107, 107, 0.3);
---glow-green: 0 0 20px rgba(81, 207, 102, 0.3);
-```
+**Shadows.** Almost none. Structure comes from hairlines, not elevation.
+
+### Checklist before adding UI
+
+- [ ] Is the colour I am reaching for a patient state or a control? If neither, use ink.
+- [ ] Do the numbers use `.tnum`?
+- [ ] Is risk stated once, not three times?
+- [ ] Contrast ≥ 4.5:1 against both paper and card.
+- [ ] Touch target ≥ 44px, keyboard focus visible, icon-only buttons have `aria-label`.
+- [ ] Loading, error and empty are three different states, and each says what to do next.
+- [ ] `npm test` passes — `test:ui` renders all four pages and will catch a broken import.
 
 ---
 
@@ -272,8 +294,8 @@ maatritva-ai/
 ### File Naming
 ```
 Components: PascalCase.jsx
-  ✅ Button.jsx, RiskOMeter.jsx, PatientCard.jsx
-  ❌ button.jsx, risk-o-meter.jsx
+  ✅ RiskBadge.jsx, RiskRendering.jsx, Wordmark.jsx
+  ❌ riskBadge.jsx, risk-badge.jsx
 
 Hooks: camelCase.js
   ✅ usePatients.js, useVoiceRecording.js
@@ -742,94 +764,55 @@ const ShapExplanation = ({ factors, riskScore }) => (
 
 ---
 
-## Firebase Integration Patterns
+## Backend Integration Pattern (as built)
 
-### Realtime Data Hook
-```js
-// hooks/usePatients.js
-import { ref, onValue, off } from 'firebase/database';
-import { useState, useEffect } from 'react';
-import { database } from '../lib/firebase';
+There is no Firebase and there are no data hooks. Every backend call goes through
+one helper, which falls back to an in-browser demo backend when the real API is
+unreachable. See `src/services/api.js` and `src/services/demoBackend.js`.
 
-export const usePatients = (ashaWorkerId) => {
-  const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  useEffect(() => {
-    const patientsRef = ref(database, `patients`);
-    
-    const handleData = (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (data) {
-          // Filter by ASHA worker and sort by risk
-          const patientList = Object.entries(data)
-            .filter(([_, p]) => p.ashaWorkerId === ashaWorkerId)
-            .map(([id, patient]) => ({ id, ...patient }))
-            .sort((a, b) => b.riskScore - a.riskScore);
-          
-          setPatients(patientList);
-        } else {
-          setPatients([]);
-        }
-        setLoading(false);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-    
-    const handleError = (err) => {
-      setError(err.message);
-      setLoading(false);
-    };
-    
-    // Subscribe to realtime updates
-    onValue(patientsRef, handleData, handleError);
-    
-    // Cleanup on unmount
-    return () => off(patientsRef);
-  }, [ashaWorkerId]);
-  
-  return { patients, loading, error };
-};
+```jsx
+import { apiFetch } from '../../services/api';
+
+// Path only — apiFetch adds the base URL, or serves demo data if nothing answers.
+const res = await apiFetch(`/asha/patients/${patientId}/details`);
+if (!res.ok) throw new Error(`Failed to load details (HTTP ${res.status})`);
+const { patient, visits } = await res.json();
 ```
+
+Rules for this layer:
+
+- **Never call `fetch` directly** for a backend route. Direct calls skip the
+  fallback and break the no-backend demo, which is how most people see this repo.
+- **Pass a path, not a URL.** `apiFetch('/asha/patients')`, never
+  `apiFetch('http://localhost:8000/asha/patients')`.
+- **Keep demo shapes in sync.** `demoBackend.js` mirrors the Pydantic models in
+  `backend/app/routers/`. Change a response model there and you must change it
+  here, or the demo silently diverges from the real API.
+- **Run `npm test` after touching either.** It asserts the shapes and the
+  ASHA→doctor referral flow.
+
+### Prediction call
+
+```jsx
+const res = await apiFetch('/asha/predict', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    patient_id: patientId,
+    blood_pressure_sys: sys, blood_pressure_dia: dia,
+    hemoglobin: hb, weight_kg: weight,
+    weeks_pregnant: weeks, age,
+  }),
+});
+const { risk_level, risk_score, flags } = await res.json();
+```
+
+`flags` is the closest thing to explainability in this codebase — a list of named
+clinical triggers such as `hypertensive_crisis` or `severe_anemia`. There is no
+SHAP here. That work lives in the `three-voices` repository.
 
 ---
 
-## API Integration Patterns (Future)
-
-### ML Prediction Call
-```js
-// lib/api.js
-export const predictRisk = async (patientData) => {
-  try {
-    const response = await fetch('/api/predict', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patientData)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Prediction failed');
-    }
-    
-    const result = await response.json();
-    
-    return {
-      riskScore: result.riskScore,
-      category: result.category,
-      shapValues: result.explanation.factors
-    };
-  } catch (error) {
-    console.error('Prediction error:', error);
-    throw new Error('रिस्क विश्लेषण विफल रहा। कृपया फिर से कोशिश करें।');
-  }
-};
-```
-
----
 
 ## Testing Guidelines
 
@@ -993,32 +976,37 @@ npm run format           # Format with Prettier
 
 ---
 
-## Project Status (March 2026)
+## Project Status — archived
 
-**Current Phase:** MVP Development for India Innovates 2026 Demo
+Built for the India Innovates 2026 demo (Bharat Mandapam, 28 March 2026).
+Development stopped that day. The list below is what the deadline actually
+produced, separated from what the original plan claimed.
 
-**Demo Date:** March 28, 2026 at Bharat Mandapam
+**Built and working:**
+- ✅ Three interfaces (ASHA, mother, doctor) with Hindi/English toggle
+- ✅ ASHA → doctor referral loop, end to end, backed by FastAPI + Supabase
+- ✅ Risk prediction, rule-based with an optional pickled model
+- ✅ Eclampsia trend assessment across visits, with a three-visit refusal gate
+- ✅ Traffic-light risk categorisation
+- ✅ Amma chat in Hindi, with emergency keyword short-circuit and cited fallbacks
+- ✅ In-browser demo backend, so the whole app runs with no backend (added Sept 2026)
 
-**Critical Deliverables:**
-- ✅ Three working interfaces (ASHA, Mother, Doctor)
-- ✅ Voice input demo (functional or simulated)
-- ✅ Risk prediction visible
-- ✅ SHAP explainability for doctors
-- ✅ Real-time sync between interfaces
-- ✅ Traffic light risk categorization
+**Claimed in the original plan, never built:**
+- ❌ Voice input — no speech code exists anywhere in this repo
+- ❌ SHAP explainability — the doctor view shows named clinical flags, not SHAP
+- ❌ Real-time sync between interfaces — every screen polls on mount
+- ❌ Offline / PWA, ABDM integration, WhatsApp alerts, Tamil/Telugu/Bengali
+- ❌ Mother dashboard backend wiring — the UI is a hardcoded patient
 
-**Future Enhancements:**
-- Offline mode (PWA + Service Workers)
-- ABDM integration
-- WhatsApp notifications
-- Multilingual (Tamil, Telugu, Bengali)
-- Amma chatbot (RAG-based health advisor)
+**Known to be unfinished:** see the "What is not finished" section of the
+[README](../../README.md). No authentication, no committed model artifacts, no
+backend tests.
 
 ---
 
-**Last Updated:** March 9, 2026
-**Maintained By:** Team मातृत्व AI (Markie, Shoury, Dhvani, Aditi)
+**Last Updated:** September 2026 (revival and archival pass)
+**Original team:** Markie, Shoury, Dhvani, Aditi
 
 ---
 
-*"Built for India. By Indians. Validated in Indian hospitals."*
+*Built for a demo. Kept for the paper.*
