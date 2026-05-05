@@ -36,6 +36,10 @@ __pycache__/
 backend/data/raw/
 !backend/data/synthetic/synthetic_asha_data.csv
 
+# Agent / tooling scratch (per-machine, and settings.local.json leaks local paths)
+.claude/
+.commandcode/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
