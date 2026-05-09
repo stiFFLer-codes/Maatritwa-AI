@@ -40,8 +40,20 @@ const DIAGNOSIS_TO_RISK = {
 
 const RISK_SCORE = { low: 0.22, moderate: 0.55, high: 0.74, critical: 0.93 };
 
-// Fixed clock so generated dates are stable within a session.
-const NOW = new Date();
+/**
+ * The demo day: 24 March 2026, the week of the India Innovates demo.
+ *
+ * Frozen rather than `new Date()` so the seeded dates never drift out of step
+ * with the dashboards, which anchor "today" to the same date. With a live
+ * clock the seed kept generating visits in the real present while the register
+ * still believed it was March, and every card read "(-165d ago)".
+ *
+ * It is also what makes the promise at the top of this file true: a screenshot
+ * taken today and one taken next year show the same register.
+ */
+export const DEMO_TODAY = new Date('2026-03-24T09:00:00Z');
+
+const NOW = DEMO_TODAY;
 
 function daysAgo(n) {
   const d = new Date(NOW);
