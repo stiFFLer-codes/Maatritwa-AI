@@ -7,6 +7,7 @@ import {
 import { useLanguage } from '../../i18n/LanguageContext';
 import TopBar from '../../components/shared/TopBar';
 import { apiFetch } from '../../services/api';
+import { DEMO_TODAY } from '../../services/demoBackend';
 
 
 const RISK_COLORS = {
@@ -738,7 +739,7 @@ export default function DoctorDashboard() {
           <div>
             <h1 className="text-3xl font-semibold text-charcoal tracking-tight">{t('doctorGreeting')}</h1>
             <p className="text-sm text-muted mt-1">
-              {new Date().toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {DEMO_TODAY.toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
           <div className="flex items-center gap-2">
