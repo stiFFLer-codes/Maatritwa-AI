@@ -10,6 +10,7 @@ import TopBar from '../../components/shared/TopBar';
 import RiskBadge from '../../components/shared/RiskBadge';
 import { predictWithModel } from '../../data/decisionTreeRules';
 import { apiFetch } from '../../services/api';
+import { DEMO_TODAY } from '../../services/demoBackend';
 
 // ── Risk Engine ──────────────────────────────────────────────────────────────
 function calculateRisk(patient) {
@@ -136,7 +137,7 @@ function calculateRisk(patient) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const TODAY = new Date('2026-03-24');
+const TODAY = DEMO_TODAY;
 
 const RISK_MAP = {
   low: 'low',
@@ -809,7 +810,7 @@ export default function AshaDashboard() {
       if (!p.lastVisitDate) return true;
       const d = new Date(p.lastVisitDate);
       if (Number.isNaN(d.getTime())) return true;
-      const diffDays = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+      const diffDays = (TODAY.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
       return diffDays > 14;
     }).length;
 
@@ -857,7 +858,7 @@ export default function AshaDashboard() {
     const actions = [];
 
     for (const patient of patients) {
-      const days = patient.lastVisitDate ? ((Date.now() - new Date(patient.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
+      const days = patient.lastVisitDate ? ((TODAY.getTime() - new Date(patient.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
       const overdue = patient.visitCount === 0 || days === null || Number.isNaN(days) || days > 14;
 
       if (patient.riskLevel === 'critical' && (patient.pendingReferralCount || 0) === 0) {
@@ -1252,7 +1253,7 @@ export default function AshaDashboard() {
         symptoms:            form.symptoms,
         previousPreeclampsia: form.previousPreeclampsia,
         firstPregnancy:      form.firstPregnancy,
-        lastVisitDate:       new Date(),
+        lastVisitDate:       TODAY,
         riskLevel:           result.level,
         visits:              [],
         ashaWorkerId:        createdPatient.asha_id,
