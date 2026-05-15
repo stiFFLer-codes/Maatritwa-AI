@@ -362,23 +362,23 @@ function PatientCard({
         </div>
       </div>
 
-      {/* Last visit */}
-      <div className={`flex items-center gap-1 mt-2.5 text-xs ${overdue ? 'text-rose-critical' : 'text-muted/70'}`}>
-        <Clock size={10} />
-        Last visit: {fmt(patient.lastVisitDate)} {visitDays !== null ? `(${visitDays}d ago)` : '(No visit yet)'}
-      </div>
-      {showRefer && (
-        <div className="mt-2.5 flex justify-end">
+      {/* Last visit, and the referral it may call for, on one line */}
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <div className={`flex items-center gap-1 text-xs ${overdue ? 'text-rose-critical' : 'text-muted/70'}`}>
+          <Clock size={10} />
+          Last visit: {fmt(patient.lastVisitDate)} {visitDays !== null ? `(${visitDays}d ago)` : '(No visit yet)'}
+        </div>
+        {showRefer && (
           <button
             type="button"
             onClick={onRefer}
             disabled={referralLoading}
-            className="h-9 px-3 rounded-md border border-action/40 text-action text-xs font-semibold hover:bg-action-tint disabled:opacity-60 transition-colors cursor-pointer"
+            className="h-8 shrink-0 rounded-md border border-action/40 px-3 text-xs font-semibold text-action transition-colors hover:bg-action-tint disabled:opacity-60 cursor-pointer"
           >
             {referralLoading ? 'Referring…' : 'Refer to doctor'}
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {referralMessage && (
         <p className={`mt-1 text-xs ${referralMessage.type === 'success' ? 'text-sage' : 'text-rose-critical'}`}>
           {referralMessage.text}
