@@ -180,9 +180,11 @@ export default function MotherDashboard() {
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages. 'nearest' keeps this inside the chat column —
+  // the default ('start') scrolls every scrollable ancestor, so landing on the
+  // page dragged the whole document down and hid the greeting behind the bar.
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, isLoading]);
 
   // Web Speech API setup
