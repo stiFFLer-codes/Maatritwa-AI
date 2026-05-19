@@ -5,22 +5,17 @@ import AshaDashboard from "./pages/asha/AshaDashboard"
 import MotherDashboard from "./pages/mother/MotherDashboard"
 import DoctorDashboard from "./pages/doctor/DoctorDashboard"
 
+// BASE_URL is "/" in dev and "/Maatritwa-AI/" when built for GitHub Pages
+// (vite build --base=...), so the same routes work in both places.
 function App() {
   return (
-    <BrowserRouter>
-
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-
         <Route path="/" element={<Landing />} />
-
         <Route path="/asha" element={<AshaDashboard />} />
-
         <Route path="/mother" element={<MotherDashboard />} />
-
         <Route path="/doctor" element={<DoctorDashboard />} />
-
       </Routes>
-
     </BrowserRouter>
   )
 }
