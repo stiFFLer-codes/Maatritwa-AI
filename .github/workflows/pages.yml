@@ -1,0 +1,60 @@
+# Publishes the frontend to GitHub Pages as a live demo.
+#
+# The app needs no backend: VITE_DEMO_MODE=1 pins it to the in-browser demo
+# backend, so nothing here calls out to an API and no secrets are involved.
+name: Deploy demo to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; a queued one supersedes the one in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm test
+
+      - run: npm run build -- --base=/Maatritwa-AI/
+        env:
+          VITE_DEMO_MODE: '1'
+
+      # Pages serves 404.html for unknown paths and leaves the URL alone, which
+      # is all React Router needs to answer /asha, /doctor and /mother directly.
+      - run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
