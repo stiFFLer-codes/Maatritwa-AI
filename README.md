@@ -4,6 +4,9 @@
 
 > **Status: archived.** This was built for the India Innovates 2026 demo (Bharat Mandapam, 28 March 2026) and development stopped the day of the demo. It is preserved as a working prototype and as the origin of a research preprint, not as a maintained product. Nothing here has been used to care for a real patient.
 
+
+[![The landing page: one visit, scored once, rendered three ways](docs/screenshots/landing.png)](https://stiffler-codes.github.io/Maatritwa-AI/)
+
 ---
 
 ## What it does
@@ -18,11 +21,33 @@ Rural antenatal care in India runs through the ASHA worker — a community healt
 
 The ASHA→Doctor loop is the finished part: a referral raised on one screen appears on the other, with the patient's vitals trend and lab panel attached.
 
+### The three interfaces
+
+**The ASHA worker's register.** Every mother in the catchment, sorted so the ones who cannot wait
+are at the top. The coloured band down each record's leading edge is the risk level, borrowed from
+the Mother and Child Protection card she already carries. Referral is one tap from the row.
+
+![The ASHA register, listing mothers by risk with a referral button on each row](docs/screenshots/asha.png)
+
+**The doctor's referral inbox.** The same mothers, arriving as referrals with their vitals history
+and lab panel attached, plus the model's raw output rather than a rounded verdict.
+
+![The doctor's referral inbox, showing critical cases and a risk distribution](docs/screenshots/doctor.png)
+
+**The mother's own view.** Her week, her last readings, and "Amma" answering in Hindi from a fixed
+set of cited WHO/ICMR/FOGSI replies. This is the tier that is still a mock — it renders a hardcoded
+patient and never calls the backend.
+
+![The mother's dashboard, showing a pregnancy progress ring and the Amma chat in Hindi](docs/screenshots/mother.png)
+
 ---
 
 ## Try it
 
-No backend, no database, no API keys, no third-party services:
+**[Open the live demo →](https://stiffler-codes.github.io/Maatritwa-AI/)** Nothing to install. It runs
+entirely in the browser on the same demo data you see below.
+
+To run it locally instead — no backend, no database, no API keys, no third-party services:
 
 ```bash
 git clone https://github.com/stiFFLer-codes/Maatritwa-AI.git
