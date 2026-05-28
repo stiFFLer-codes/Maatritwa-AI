@@ -179,7 +179,7 @@ Nothing decorative is coloured. An alarm that competes with ornament stops readi
 
 Type is one superfamily in three roles: **IBM Plex Sans** for Latin, **IBM Plex Sans Devanagari** for Hindi, **IBM Plex Mono** for clinical numbers. Plex Sans carries no Devanagari, so Hindi falls through to its matched sibling automatically — bilingual by font fallback, with no per-string language class anywhere in the app. There is no separate display face; headings are separated by weight and tracking, because a screen read at arm's length in daylight wants one voice.
 
-Two structural devices carry most of the layout. `.spine` puts a risk-coloured band down the leading edge of a record, the way the Mother and Child Protection card these workers already carry is banded. `.tnum` sets a value in the mono face with tabular figures, so a column of blood pressures lines up. Full tokens and the rules for extending them are in `frontend/src/CLAUDE.md`.
+Two structural devices carry most of the layout. `.spine` puts a risk-coloured band down the leading edge of a record, the way the Mother and Child Protection card these workers already carry is banded. `.tnum` sets a value in the mono face with tabular figures, so a column of blood pressures lines up. Full tokens and the rules for extending them are in `frontend/src/PROJECT-GUIDE.md`.
 
 ### The landing signature
 

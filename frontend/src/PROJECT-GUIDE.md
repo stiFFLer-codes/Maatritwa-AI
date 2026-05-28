@@ -119,7 +119,7 @@ frontend/
     ├── main.jsx
     ├── App.jsx                    # four routes, no layout wrapper
     ├── index.css                  # tokens, base type, .tnum, .label, .spine, motion
-    ├── CLAUDE.md                  # this file
+    ├── PROJECT-GUIDE.md           # this file
     ├── components/shared/
     │   ├── Wordmark.jsx           # Mark + wordmark, monochrome
     │   ├── TopBar.jsx             # back / wordmark / language + the demo banner
