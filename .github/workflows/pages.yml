@@ -15,6 +15,11 @@ permissions:
   id-token: write
 
 # Never let two deploys race; a queued one supersedes the one in flight.
+#
+# Note for a failed run: use "Run workflow" to start a fresh one rather than
+# "Re-run jobs". Artifacts stay attached to the run they were built in, so a
+# re-run uploads a second github-pages artifact alongside the first and the
+# deploy step then refuses with "Multiple artifacts named github-pages".
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -26,11 +31,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -45,7 +50,7 @@ jobs:
       # is all React Router needs to answer /asha, /doctor and /mother directly.
       - run: cp dist/index.html dist/404.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: frontend/dist
 
@@ -57,4 +62,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
