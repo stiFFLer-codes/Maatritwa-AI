@@ -140,7 +140,7 @@ frontend/            React app — the part worth looking at
   src/pages/         Landing, ASHA, doctor, mother dashboards
   src/services/      api.js (real backend + fallback), demoBackend.js, ammaChat.js
   src/components/    Wordmark, TopBar, LanguageToggle, RiskBadge, RiskRendering
-  src/data/          Pseudonymised clinical records, model metrics, rule tables
+  src/data/          Anonymised demo records, model metrics, rule tables
   src/i18n/          Hindi/English strings
 backend/
   app/               FastAPI: routers, auth, Supabase client, model loading

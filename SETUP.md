@@ -23,7 +23,7 @@ Open <http://localhost:5173>.
 
 All three dashboards work. When no backend answers on `localhost:8000`, `src/services/api.js` falls back to `src/services/demoBackend.js`, an in-browser stand-in that serves the same endpoints in the same shapes as the real API. Every screen shows an amber strip saying the data is demo data.
 
-The demo dataset is 104 pseudonymised clinical records with three generated visits each, so the visit-trend and eclampsia-gate features have something to work on. State lives for one page session — raise a referral on `/asha`, switch to `/doctor`, and it is there; reload and everything resets to seed.
+The demo dataset is 104 anonymised clinical records with three generated visits each, so the visit-trend and eclampsia-gate features have something to work on. State lives for one page session — raise a referral on `/asha`, switch to `/doctor`, and it is there; reload and everything resets to seed.
 
 ### Scripts
 
