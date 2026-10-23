@@ -144,7 +144,7 @@ frontend/            React app, the part worth looking at
   src/i18n/          Hindi/English strings
 backend/
   app/               FastAPI: routers, auth, Supabase client, model loading
-  ml/                Training and data-prep scripts
+  ml/                Training scripts
   supabase/          schema.sql and migrations
 docs/architecture.md
 ```
