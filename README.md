@@ -73,10 +73,11 @@ npm run build   # production build
 
 The prototype raised a question it could not answer, and that question became a preprint:
 
-> **A Coin Flip Is Not a Red Light: Grading a Maternal-Health Risk Alarm for Mothers, Community Health Workers, and Clinicians**
+> **Three Voices: Uncertainty-Gated Rendering of a Maternal-Health Risk Alarm for Mothers, Community Health Workers, and Clinicians**
 > Maitreya Sapariya, Aditi Patil
+> Submitted to arXiv; code and artifacts archived at https://doi.org/10.5281/zenodo.22252076.
 
-When a risk model splits a case 0.487 against 0.499 between two adjacent risk levels, a clinician can read that margin and discount it. A mother handed a red alarm for the same prediction cannot. The paper's answer is to make the abstention decision part of the rendering: the highest-severity signal is withheld from the mother's channel when the model is on a knife edge, derating red to amber — never red to green, and amber still means *needs follow-up*.
+When a risk model's top two classes are nearly tied, a clinician can read that split and discount it. A mother handed a red alarm for the same prediction cannot. The paper's answer is to make the abstention decision part of the rendering: the highest-severity signal is withheld from the mother's channel when the model is on a knife edge, derating red to amber, never red to green, and amber still means needs follow-up.
 
 - **Artifact repository:** [stiFFLer-codes/three-voices](https://github.com/stiFFLer-codes/three-voices)
 - **Archived artifacts:** [10.5281/zenodo.22252076](https://doi.org/10.5281/zenodo.22252076)
