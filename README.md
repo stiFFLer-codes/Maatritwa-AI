@@ -2,7 +2,7 @@
 
 **A maternal-health referral prototype for rural India: ASHA worker to doctor, with the mother in the loop.**
 
-> **Status: archived.** This was built for the India Innovates 2026 demo (Bharat Mandapam, 28 March 2026) and development stopped the day of the demo. It is preserved as a working prototype and as the origin of a research preprint, not as a maintained product. Nothing here has been used to care for a real patient.
+> **Status: archived.** This was built for the India Innovates 2026 demo (Bharat Mandapam, 28 March 2026) and development stopped the day of the demo. It is preserved as a working prototype and as the origin of a research preprint, not as a maintained product. Nothing here has been used to care for a real mother.
 
 
 [![The landing page: one visit, scored once, rendered three ways](docs/screenshots/landing.png)](https://stiffler-codes.github.io/Maatritwa-AI/)
@@ -19,7 +19,7 @@ Rural antenatal care in India runs through the ASHA worker, a community health w
 | **Doctor** `/doctor` | Work a referral inbox, read visit history and labs, add lab results, accept or resolve | Complete, backed by the API |
 | **Mother** `/mother` | Pregnancy progress ring, week-by-week fetal development, "Amma" chat in Hindi | UI complete, **never wired to the backend** |
 
-The ASHA→Doctor loop is the finished part: a referral raised on one screen appears on the other, with the patient's vitals trend and lab panel attached.
+The ASHA→Doctor loop is the finished part: a referral raised on one screen appears on the other, with the mother's vitals trend and lab panel attached.
 
 ### The three interfaces
 
@@ -36,7 +36,7 @@ and lab panel attached, plus the model's raw output rather than a rounded verdic
 
 **The mother's own view.** Her week, her last readings, and "Amma" answering in Hindi from a fixed
 set of cited WHO/ICMR/FOGSI replies. This is the tier that is still a mock. It renders a hardcoded
-patient and never calls the backend.
+mother and never calls the backend.
 
 ![The mother's dashboard, showing a pregnancy progress ring and the Amma chat in Hindi](docs/screenshots/mother.png)
 
@@ -112,7 +112,7 @@ More detail in [docs/architecture.md](./docs/architecture.md).
 Stated plainly, because the repo is archived and nobody is coming to fix these.
 
 - **No authentication.** `DEV_AUTH=1` serves every request as a fixed demo user for whichever role the endpoint asks for. The API is unauthenticated read/write. Real Supabase token verification is still in `app/auth.py` behind `DEV_AUTH=0`, untested since March 2026.
-- **The mother dashboard is a mock.** It renders a hardcoded patient. `/mother/*` endpoints exist on the backend and nothing calls them.
+- **The mother dashboard is a mock.** It renders a hardcoded mother. `/mother/*` endpoints exist on the backend and nothing calls them.
 - **No model artifacts.** `.pkl` files are gitignored and were never committed, so every prediction path uses the rule-based fallback.
 - **The mother's tier has no accessibility story.** Voice *input* works (Web Speech API, `hi-IN`, Chromium only) but there is no speech output, no captions, and no screen-reader path. Section 6.3 of the paper works through who that excludes.
 - **The Amma chat has no language model.** It proxied to a hosted LLM until September 2026, when that

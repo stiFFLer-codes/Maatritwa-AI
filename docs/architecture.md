@@ -19,7 +19,7 @@ Three React dashboards over one FastAPI service over one Supabase database. The 
 │                     └─────────┬─────────┘                  │               │
 │                               ▼                            ▼               │
 │                    services/api.js                  (no backend calls:     │
-│                    apiFetch(path, opts)              hardcoded patient)    │
+│                    apiFetch(path, opts)              hardcoded mother)     │
 │                               │                                            │
 │                 ┌─────────────┴──────────────┐                             │
 │         reachable?                    unreachable / 5xx                    │
@@ -69,7 +69,7 @@ raise referral    ──POST /asha/referrals─────▶ referrals ──�
                                                   ┌─────────────────────┤
                                                   ▼                     ▼
                                         GET /doctor/referrals/:id   POST .../labs
-                                        patient + vitals history    clinical_labs
+                                        mother + vitals history     clinical_labs
                                         + labs + assessments             │
                                                                          ▼
                                                         PATCH .../status  accepted → resolved
@@ -171,7 +171,7 @@ One rule governs colour: **chroma is a clinical signal.**
 
 | Family | Means | Where |
 |---|---|---|
-| warm ramp (`risk-safe` → `risk-critical`) | the patient's state | badges, spines, the risk ladder |
+| warm ramp (`risk-safe` → `risk-critical`) | the mother's state | badges, spines, the risk ladder |
 | cool (`action`, a deep Prussian ink-blue) | something you can act on | buttons, links, focus |
 | ink on warm paper | everything else | text, hairlines, structure, the demo banner |
 
