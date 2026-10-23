@@ -49,7 +49,7 @@ export default function TopBar({ showBack = true, rightSlot = null, alwaysDemo =
             <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-paper/70" />
             <span>
               <strong className="font-semibold">Demo data.</strong> No backend connected.
-              These are pseudonymised research records, not live patients, and nothing
+              These are anonymised research records, not live patients, and nothing
               here is a diagnosis or medical advice.
             </span>
           </p>

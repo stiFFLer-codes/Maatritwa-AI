@@ -24,8 +24,7 @@ SOFTWARE.
 
 This licence covers the source code only.
 
-It does NOT cover the clinical dataset. The records in
-frontend/src/data/clinicalPatients.json are derived from patient data collected
-at a tertiary care hospital and were pseudonymised before publication. They are
-included so the demo has realistic inputs. They are not released for reuse,
-redistribution or secondary analysis. See the Data section of README.md.
+The demo records in frontend/src/data/ were anonymised by the project's
+clinical collaborator before they were shared, and they are used here with
+permission. They are not covered by the MIT licence above and are not released
+for reuse, redistribution or secondary analysis.

@@ -140,7 +140,7 @@ frontend/
     │   ├── ammaChat.js            # offline cited replies, no LLM
     │   └── ammaChat.test.mjs
     ├── data/
-    │   ├── clinicalPatients.json  # 104 pseudonymised records
+    │   ├── clinicalPatients.json  # 104 anonymised records
     │   ├── clinicalKnowledgeBase.js
     │   ├── decisionTreeRules.js
     │   └── modelMetrics.json      # read its `caveats` block first

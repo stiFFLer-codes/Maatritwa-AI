@@ -149,7 +149,7 @@ export default function Landing() {
           </div>
           <p className="max-w-md text-[12px] leading-relaxed text-ink-soft">
             Not a medical device. It does not diagnose, and no output from it should
-            inform care for a real person. Demo records are pseudonymised research data.
+            inform care for a real person. Demo records are anonymised research data.
           </p>
         </div>
       </footer>
