@@ -110,7 +110,7 @@ With the backend up, the frontend uses it automatically and the demo banner disa
 
 No `.pkl` model artifacts are committed. Without them both predictors use the rule-based fallbacks in `backend/app/ml.py`, which is the intended default.
 
-The training scripts in `backend/ml/` need the raw clinical spreadsheet, which is **not distributed** — see the Data section of the README. Without it, `train_xgboost.py` and `process_clinical_data.py` will exit at the missing-file check. `generate_synthetic_data.py` runs on its own and only writes synthetic rows.
+`train_xgboost.py` needs the raw clinical spreadsheet, which is not distributed. Without it, the script exits at the missing-file check. `train_model.py` reads the committed records, and `generate_synthetic_data.py` runs on its own.
 
 ---
 

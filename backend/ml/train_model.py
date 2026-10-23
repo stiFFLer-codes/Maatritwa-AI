@@ -24,7 +24,7 @@ METRICS_OUT = ROOT / "frontend" / "src" / "data" / "modelMetrics.json"
 RULES_OUT   = ROOT / "frontend" / "src" / "data" / "decisionTreeRules.js"
 
 if not CLINICAL_J.exists():
-    sys.exit("ERROR: clinicalPatients.json not found. Run process_clinical_data.py first.")
+    sys.exit("ERROR: clinicalPatients.json not found at frontend/src/data/.")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 with open(CLINICAL_J, encoding="utf-8") as f:
