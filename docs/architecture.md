@@ -132,7 +132,7 @@ The ASHA side speaks `low` / `medium` / `high`. The doctor side normalises to `s
 
 There isn't any.
 
-`DEV_AUTH` defaults to `1`. In that mode `require_role(r)` returns a fixed demo user carrying role `r`, whatever the request. There is no token check and no login screen. The API is unauthenticated read/write against real patient tables.
+`DEV_AUTH` defaults to `1`. In that mode `require_role(r)` returns a fixed demo user carrying role `r`, whatever the request. There is no token check and no login screen. The API is unauthenticated read/write against the real `patients` table.
 
 `DEV_AUTH=0` restores Supabase bearer-token verification in `_decode_access_token` and `_ensure_user_row`. That path is intact but has not been exercised since March 2026.
 
@@ -147,7 +147,7 @@ src/
   App.jsx                  four routes, no layout wrapper
   pages/
     Landing.jsx            role chooser, hand-drawn SVG mandala illustration
-    asha/AshaDashboard.jsx      patient list, registration, vitals, referral
+    asha/AshaDashboard.jsx      list of mothers, registration, vitals, referral
     doctor/DoctorDashboard.jsx  referral inbox, detail drawer, labs
     mother/MotherDashboard.jsx  progress ring, fetal size, Amma chat
   components/shared/       Wordmark, TopBar, LanguageToggle, RiskBadge, RiskRendering
@@ -212,7 +212,7 @@ which is the accessibility gap the README names.
 
 ## Known divergences between code and schema
 
-The API accepts and returns a richer patient record than the database can store. Documented rather than fixed, because fixing it means writing a migration nobody will run.
+The API accepts and returns a richer record of a mother than the database can store. Documented rather than fixed, because fixing it means writing a migration nobody will run.
 
 **Columns the code expects that no migration creates:**
 
