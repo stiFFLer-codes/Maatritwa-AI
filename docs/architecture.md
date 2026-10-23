@@ -18,7 +18,7 @@ Three React dashboards over one FastAPI service over one Supabase database. The 
 │                     │                   │                  │               │
 │                     └─────────┬─────────┘                  │               │
 │                               ▼                            ▼               │
-│                    services/api.js                  (no backend calls —    │
+│                    services/api.js                  (no backend calls:     │
 │                    apiFetch(path, opts)              hardcoded patient)    │
 │                               │                                            │
 │                 ┌─────────────┴──────────────┐                             │
@@ -39,7 +39,7 @@ Three React dashboards over one FastAPI service over one Supabase database. The 
 
 ### The fallback is the point
 
-`src/services/api.js` is the only place the frontend talks to a backend. It tries the real API first and switches to the in-browser demo backend on a network error or a 5xx, once per page session. A 4xx passes straight through — that is a real answer from a real server, and swallowing it would hide genuine bugs behind fake data.
+`src/services/api.js` is the only place the frontend talks to a backend. It tries the real API first and switches to the in-browser demo backend on a network error or a 5xx, once per page session. A 4xx passes straight through: that is a real answer from a real server, and swallowing it would hide genuine bugs behind fake data.
 
 `demoBackend.js` mirrors the Pydantic response models in `backend/app/routers/` field for field, so nothing downstream can tell the difference. It also mirrors the rule-based prediction functions in `backend/app/ml.py`, so demo predictions agree with real ones. `demoBackend.test.mjs` asserts both.
 
@@ -75,7 +75,7 @@ raise referral    ──POST /asha/referrals─────▶ referrals ──�
                                                         PATCH .../status  accepted → resolved
 ```
 
-A second path exists for mothers already on the register: `POST /asha/patients/:id/visits` records a follow-up visit, and `GET /asha/patients/:id/eclampsia-risk` reads the trend across visits. That endpoint refuses to answer below three recorded visits rather than guessing — `eligible: false` with the count so far.
+A second path exists for mothers already on the register: `POST /asha/patients/:id/visits` records a follow-up visit, and `GET /asha/patients/:id/eclampsia-risk` reads the trend across visits. That endpoint refuses to answer below three recorded visits rather than guessing: `eligible: false` with the count so far.
 
 ---
 
@@ -87,7 +87,7 @@ Eight tables in `backend/supabase/schema.sql`.
 |---|---|
 | `users` | id, role (`asha`/`mother`/`doctor`), name, email, phone |
 | `asha_profiles` / `mother_profiles` / `doctor_profiles` | role-specific detail, keyed to `users` |
-| `patients` | a mother on an ASHA's register — name, age, weeks pregnant, village |
+| `patients` | a mother on an ASHA's register: name, age, weeks pregnant, village |
 | `vitals` | one reading set: BP, haemoglobin, weight, symptoms, timestamp |
 | `risk_assessments` | model output: level, score, flags, model version |
 | `referrals` | ASHA → doctor, with status `pending`/`accepted`/`resolved` |
@@ -159,9 +159,9 @@ src/
   i18n/                    LanguageContext + Hindi/English strings
 ```
 
-The dashboards are large single files — `AshaDashboard.jsx` is around 2,000 lines with its sub-components inlined. That is how they were written under a demo deadline and they have not been decomposed.
+The dashboards are large single files: `AshaDashboard.jsx` is around 2,000 lines with its sub-components inlined. That is how they were written under a demo deadline and they have not been decomposed.
 
-A September 2026 pass deleted a parallel component library — `Button`, `Card`, `Badge`, `RiskOMeter`, `PatientCard`, `Header`, `Footer`, `HeroIllustration` and three form components — that looked like the design system but was imported by nothing. What is listed above is what actually renders.
+A September 2026 pass deleted a parallel component library that looked like the design system but was imported by nothing: `Button`, `Card`, `Badge`, `RiskOMeter`, `PatientCard`, `Header`, `Footer`, `HeroIllustration` and three form components. What is listed above is what actually renders.
 
 ---
 
@@ -175,37 +175,37 @@ One rule governs colour: **chroma is a clinical signal.**
 | cool (`action`, a deep Prussian ink-blue) | something you can act on | buttons, links, focus |
 | ink on warm paper | everything else | text, hairlines, structure, the demo banner |
 
-Nothing decorative is coloured. An alarm that competes with ornament stops reading as an alarm — the same argument the paper makes about rendering an uncertain prediction as a red light, applied to the interface. Every foreground/background pairing clears WCAG AA on both paper and card.
+Nothing decorative is coloured. An alarm that competes with ornament stops reading as an alarm: the same argument the paper makes about rendering an uncertain prediction as a red light, applied to the interface. Every foreground/background pairing clears WCAG AA on both paper and card.
 
-Type is one superfamily in three roles: **IBM Plex Sans** for Latin, **IBM Plex Sans Devanagari** for Hindi, **IBM Plex Mono** for clinical numbers. Plex Sans carries no Devanagari, so Hindi falls through to its matched sibling automatically — bilingual by font fallback, with no per-string language class anywhere in the app. There is no separate display face; headings are separated by weight and tracking, because a screen read at arm's length in daylight wants one voice.
+Type is one superfamily in three roles: **IBM Plex Sans** for Latin, **IBM Plex Sans Devanagari** for Hindi, **IBM Plex Mono** for clinical numbers. Plex Sans carries no Devanagari, so Hindi falls through to its matched sibling automatically, so it is bilingual by font fallback, with no per-string language class anywhere in the app. There is no separate display face; headings are separated by weight and tracking, because a screen read at arm's length in daylight wants one voice.
 
 Two structural devices carry most of the layout. `.spine` puts a risk-coloured band down the leading edge of a record, the way the Mother and Child Protection card these workers already carry is banded. `.tnum` sets a value in the mono face with tabular figures, so a column of blood pressures lines up. Full tokens and the rules for extending them are in `frontend/src/PROJECT-GUIDE.md`.
 
 ### The landing signature
 
-`components/shared/RiskRendering.jsx` is the landing page's hero and its role chooser at once. It takes one visit — blood pressure, haemoglobin, gestation week — scores it once, and shows the three renderings side by side. Toggling between a clear case (margin 0.85) and a borderline one (0.499 against 0.487, margin 0.012) derates the mother's panel from red to amber while the doctor's keeps the raw posterior. The three panels are deliberately unequal in width and density: the inequality is the content.
+`components/shared/RiskRendering.jsx` is the landing page's hero and its role chooser at once. It takes one visit (blood pressure, haemoglobin, gestation week), scores it once, and shows the three renderings side by side. Toggling between a clear case (margin 0.85) and a borderline one (0.499 against 0.487, margin 0.012) derates the mother's panel from red to amber while the doctor's keeps the raw posterior. The three panels are deliberately unequal in width and density: the inequality is the content.
 
 ### Amma
 
-There is no language model here, and no network call. The chat used to proxy to the Sarvam AI API; that path was removed when the project was archived — a key shipped in a browser bundle is public to every visitor, and the curated replies were carrying the demo regardless.
+There is no language model here, and no network call. The chat used to proxy to the Sarvam AI API; that path was removed when the project was archived: a key shipped in a browser bundle is public to every visitor, and the curated replies were carrying the demo regardless.
 
 What runs now is four layers in `ammaChat.js`, tried in order:
 
-1. **Emergency keywords** — bleeding, seizures, loss of fetal movement and similar, in Hindi and English, short-circuit to a fixed "go to hospital now" message. This runs before anything else.
-2. **Curated topic replies** — eight topics (pain, diet, anxiety, fetal growth, visits, medication, sleep, general), each in Amma's voice and each carrying a WHO, ICMR or FOGSI citation.
-3. **Knowledge base lookup** — `searchKnowledge()` over `clinicalKnowledgeBase.js`, returning the guideline fact itself with its citation. This covers topics the eight curated replies miss.
-4. **Fallback** — defer the question to the ASHA worker or doctor.
+1. **Emergency keywords**: bleeding, seizures, loss of fetal movement and similar, in Hindi and English, short-circuit to a fixed "go to hospital now" message. This runs before anything else.
+2. **Curated topic replies**: eight topics (pain, diet, anxiety, fetal growth, visits, medication, sleep, general), each in Amma's voice and each carrying a WHO, ICMR or FOGSI citation.
+3. **Knowledge base lookup**: `searchKnowledge()` over `clinicalKnowledgeBase.js`, returning the guideline fact itself with its citation. This covers topics the eight curated replies miss.
+4. **Fallback**: defer the question to the ASHA worker or doctor.
 
-Every answer is a fixed string from this repository. That is a real limitation — it cannot answer anything unanticipated — and it is also why the chat can never fabricate clinical advice.
+Every answer is a fixed string from this repository. That is a real limitation, because it cannot answer anything unanticipated, and it is also why the chat can never fabricate clinical advice.
 
 Layer 1 strips "blood pressure", "blood test", "blood group", "blood report" and "blood sugar" before
 scanning, because the bare keyword `blood` otherwise fired the hospital alarm on the most routine
 question a pregnant woman asks. An alarm that goes off on ordinary questions stops being read as an
-alarm — the same argument the paper makes about rendering an uncertain prediction as a red light.
+alarm: the same argument the paper makes about rendering an uncertain prediction as a red light.
 
 Voice input is real, not a mock: `MotherDashboard.jsx` uses the browser's Web Speech API with
 `lang = 'hi-IN'`. It is Chromium-only, so the mic button is hidden entirely where the API is absent
-rather than sitting there doing nothing. There is no speech *output* — the replies are text only,
+rather than sitting there doing nothing. There is no speech *output*: the replies are text only,
 which is the accessibility gap the README names.
 
 ---
@@ -228,6 +228,6 @@ The practical consequences:
 
 - **`migrations/004_create_views.sql` cannot run against this schema.** It selects `p.gravida`, `p.parity` and `lv.pulse_rate`, none of which exist. Run `schema.sql` and skip 004 unless you add the columns first. (It also reads `clinical_labs`, which was missing entirely until September 2026.)
 - Fields the ASHA registration form collects are silently dropped on write. The form asks for gravida, parity and diabetic history; the row that lands in `patients` has none of them.
-- `PatientResponse` declares `risk_level`, `risk_score`, `blood_pressure_sys`, `last_visit_date` and the three count fields, none of which are columns on `patients` either — they are assembled per request by the router from `vitals`, `risk_assessments` and `referrals`.
+- `PatientResponse` declares `risk_level`, `risk_score`, `blood_pressure_sys`, `last_visit_date` and the three count fields, none of which are columns on `patients` either: they are assembled per request by the router from `vitals`, `risk_assessments` and `referrals`.
 
 The demo backend stores everything the API models declare, so **the demo shows fields the real database would drop.** That gap flatters the demo, and is worth knowing before reading the ASHA screen as evidence that the persistence layer works.

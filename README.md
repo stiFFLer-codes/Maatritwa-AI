@@ -1,6 +1,6 @@
 # मातृत्व AI (Maatritwa AI)
 
-**A maternal-health referral prototype for rural India — ASHA worker to doctor, with the mother in the loop.**
+**A maternal-health referral prototype for rural India: ASHA worker to doctor, with the mother in the loop.**
 
 > **Status: archived.** This was built for the India Innovates 2026 demo (Bharat Mandapam, 28 March 2026) and development stopped the day of the demo. It is preserved as a working prototype and as the origin of a research preprint, not as a maintained product. Nothing here has been used to care for a real patient.
 
@@ -11,7 +11,7 @@
 
 ## What it does
 
-Rural antenatal care in India runs through the ASHA worker — a community health worker who visits mothers at home, records vitals on paper, and decides who needs a doctor. This prototype puts that chain on a screen, for all three people in it.
+Rural antenatal care in India runs through the ASHA worker, a community health worker who visits mothers at home, records vitals on paper, and decides who needs a doctor. This prototype puts that chain on a screen, for all three people in it.
 
 | Interface | What it does | State |
 |---|---|---|
@@ -35,7 +35,7 @@ and lab panel attached, plus the model's raw output rather than a rounded verdic
 ![The doctor's referral inbox, showing critical cases and a risk distribution](docs/screenshots/doctor.png)
 
 **The mother's own view.** Her week, her last readings, and "Amma" answering in Hindi from a fixed
-set of cited WHO/ICMR/FOGSI replies. This is the tier that is still a mock — it renders a hardcoded
+set of cited WHO/ICMR/FOGSI replies. This is the tier that is still a mock. It renders a hardcoded
 patient and never calls the backend.
 
 ![The mother's dashboard, showing a pregnancy progress ring and the Amma chat in Hindi](docs/screenshots/mother.png)
@@ -47,7 +47,7 @@ patient and never calls the backend.
 **[Open the live demo →](https://stiffler-codes.github.io/Maatritwa-AI/)** Nothing to install. It runs
 entirely in the browser on the same demo data you see below.
 
-To run it locally instead — no backend, no database, no API keys, no third-party services:
+To run it locally instead, with no backend, no database, no API keys and no third-party services:
 
 ```bash
 git clone https://github.com/stiFFLer-codes/Maatritwa-AI.git
@@ -60,7 +60,7 @@ Open <http://localhost:5173>. All three dashboards work immediately against an i
 
 The landing page opens on the argument the project is about: one visit, scored once, rendered three ways. Switch it between a clear case and a borderline one and watch the mother's panel derate from red to amber while the doctor keeps the raw probabilities.
 
-Running the real FastAPI backend is optional and needs your own Supabase project — see [SETUP.md](./SETUP.md).
+Running the real FastAPI backend is optional and needs your own Supabase project, see [SETUP.md](./SETUP.md).
 
 ```bash
 npm test        # self-check for the demo backend
@@ -101,7 +101,7 @@ React 19 + Vite + Tailwind          FastAPI                    Supabase
 └─────────────────────────┘     └──────────────────┘
 ```
 
-Both predictors load a pickled scikit-learn model if one is present and fall back to explicit clinical rules if not. The rules are the honest default — no model artifacts ship with this repo.
+Both predictors load a pickled scikit-learn model if one is present and fall back to explicit clinical rules if not. The rules are the honest default: no model artifacts ship with this repo.
 
 More detail in [docs/architecture.md](./docs/architecture.md).
 
@@ -116,7 +116,7 @@ Stated plainly, because the repo is archived and nobody is coming to fix these.
 - **No model artifacts.** `.pkl` files are gitignored and were never committed, so every prediction path uses the rule-based fallback.
 - **The mother's tier has no accessibility story.** Voice *input* works (Web Speech API, `hi-IN`, Chromium only) but there is no speech output, no captions, and no screen-reader path. Section 6.3 of the paper works through who that excludes.
 - **The Amma chat has no language model.** It proxied to a hosted LLM until September 2026, when that
-  path was removed — a key shipped in a browser bundle is public to every visitor. It now answers only
+  path was removed: a key shipped in a browser bundle is public to every visitor. It now answers only
   from a fixed set of cited WHO/ICMR/FOGSI replies, so it cannot answer anything unanticipated.
 - **No tests beyond three self-checks** (`demoBackend`, `ammaChat`, page rendering). No backend tests at all.
 - **Hindi only.** The i18n layer supports Hindi and English; the ASHA card strings are English-only.
@@ -136,7 +136,7 @@ This software is not a medical device. It does not diagnose, and no output from 
 ## Repository layout
 
 ```
-frontend/            React app — the part worth looking at
+frontend/            React app, the part worth looking at
   src/pages/         Landing, ASHA, doctor, mother dashboards
   src/services/      api.js (real backend + fallback), demoBackend.js, ammaChat.js
   src/components/    Wordmark, TopBar, LanguageToggle, RiskBadge, RiskRendering
@@ -153,7 +153,7 @@ docs/architecture.md
 
 ## License
 
-Source code is MIT — see [LICENSE](./LICENSE). The clinical dataset is not covered by it; see the Data section above.
+Source code is MIT, see [LICENSE](./LICENSE). The clinical dataset is not covered by it; see the Data section above.
 
 ---
 
