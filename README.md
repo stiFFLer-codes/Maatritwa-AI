@@ -124,9 +124,9 @@ Stated plainly, because the repo is archived and nobody is coming to fix these.
 
 ## Data
 
-The model figures in this repo describe a student prototype. **They are not clinical validation.** `frontend/src/data/modelMetrics.json` carries a `caveats` block that should be read before any number in it — including a per-class labelling bug, corrected in September 2026, that had swapped the Normal and Mild Pre-Eclampsia rows and made minority-class detection look far better than it was.
+The demo runs on 104 records in `frontend/src/data/clinicalPatients.json`. They were anonymised by the project's clinical collaborator before they were shared, and they are used here with permission. The names shown in the demo are placeholders. The records are included so the demo has realistic inputs; they are not released for reuse, redistribution or secondary analysis.
 
-`frontend/src/data/clinicalPatients.json` holds 104 records derived from data collected at a tertiary care hospital. Names were replaced with random draws from a fixed pool by `backend/ml/process_clinical_data.py` before publication. The records are included so the demo has realistic inputs. **They are not released for reuse, redistribution or secondary analysis.** The raw source spreadsheet is not distributed and is excluded by `.gitignore`.
+The model figures in this repo describe a student prototype and are not clinical validation. Read the `caveats` block in `frontend/src/data/modelMetrics.json` before any number in it, including a per-class labelling bug, corrected in September 2026, that had swapped the Normal and Mild Pre-Eclampsia rows and made minority-class detection look far better than it was.
 
 This software is not a medical device. It does not diagnose, and no output from it should inform care for a real person.
 
